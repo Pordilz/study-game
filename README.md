@@ -1,8 +1,10 @@
-# Study 30 Seconds
+# Study 30
 
-A study edition of *30 Seconds* for medical students, built on the same game as [Winton 30 Seconds](https://github.com/Pordilz/winton-30-seconds). You describe a medical term to your team against the clock, then everyone reads the high-yield fact behind it. It also has a single-best-answer quiz and flashcards for studying alone.
+A study app for medical students, built from your own lecture notes. On your own, it gives you flashcards with spaced repetition, untimed practice questions with explanations, and a study guide. With your study group, there's a medical edition of *30 Seconds* and a group quiz, built on the same game as [Winton 30 Seconds](https://github.com/Pordilz/winton-30-seconds).
 
-It runs in a phone browser, so you pass one phone around: no board, cards, die or egg timer. It looks like a set of lecture notes: ruled paper with a red margin, highlighter, case-note stamps, an ECG trace for the clock and a results slip for the scores.
+It runs in a phone browser and saves everything on the phone, so there's nothing to sign up for. It looks like a set of lecture notes: ruled paper with a red margin, highlighter, and an ECG trace for the clock.
+
+**Live:** https://study-game.vercel.app
 
 The content comes from the "An Approach to Everything" notes, with 9 subjects, 62 topics, about 1,200 terms and 400 quiz questions:
 
@@ -22,7 +24,7 @@ Each pack lives in `packs/`. See [packs/README.md](packs/README.md) to fix a fac
 
 ## Choosing what to revise
 
-The cover starts with **What you're revising**:
+The home screen starts with **What you're revising**:
 
 - **Subjects:** turn on one or several. A card can mix subjects.
 - **Topics:** every topic in the chosen subjects, on by default. Turn off the ones you haven't covered yet.
@@ -30,53 +32,54 @@ The cover starts with **What you're revising**:
 
 The line underneath shows how many terms and quiz questions are in the selection. The 30 Seconds game, the quiz, the flashcards and the study guide all use it.
 
-## 30 Seconds
+## The home screen
+
+At the top, **Your progress** shows how many cards are due today, the share of terms in your selection you've mastered, and how many practice questions you got right the last time you answered them. Below that is a bar for each subject.
+
+## Studying on your own
+
+- **Flashcards (spaced repetition).** Each session starts with your revision pile, then the cards that are due, then up to 15 new terms from your topics, easiest first. Say the answer out loud, flip the card, and mark it honestly:
+  - **Knew it:** the card moves up a box and comes back after 1, then 3, 7, 14 and 30 days. A term counts as mastered from the 7-day box.
+  - **Not yet:** the card goes back to the start and comes round again before the session ends.
+- **Practice questions.** Ten single best answer questions at a time, untimed. Questions you've never tried come first, then the ones you got wrong last time. After each answer you see the right one and the explanation. At the end you get your score by topic and a **Review my mistakes** button, which turns them into flashcards.
+- **Study guide.** Every term in the subjects you picked, topic by topic, with its fact. Useful as a one-page summary of a set of notes.
+- **Revision pile.** Every term your group missed and every question you got wrong, with its fact, most-missed first. Pile cards come up first in your flashcards, and they leave the pile once you know them.
+
+## Studying with your group
+
+### 30 Seconds
 
 1. Split into teams (2 to 6). On each turn, one person describes and the rest of their team guesses.
-2. **Roll the die.** It lands on 0, 1 or 2, and that number comes off the team's score for the turn.
-3. **Start the clock.** The describer sees five terms and has 30 seconds to get the team to say them, in any order. Each card tries to cover five kinds of term (diagnosis, sign, investigation, drug, mechanism, eponym). Terms that share a word never land on the same card.
-4. No saying the term or any part of it, no abbreviations of it, no "sounds like", no spelling it out.
-5. **Tap a term, or swipe it right,** when your team gets it. Got all five with time left? Tap **Card cleared · next card**.
-6. When time's up, check the card together. **Every term shows its high-yield fact**, so read them out: that's the studying. Any term the team missed goes on the revision pile.
-7. **Points = terms guessed − the die.** The first team to the target wins.
+2. The describer sees five terms and has 30 seconds to get the team to say them, in any order. Each card tries to cover five kinds of term (diagnosis, sign, investigation, drug, mechanism, eponym), and terms that share a word never land on the same card.
+3. No saying the term or any part of it, no abbreviations of it, no "sounds like", no spelling it out.
+4. Tap a term, or swipe it right, the moment your team gets it. Got all five with time left? Tap **Card cleared · next card**.
+5. When time's up, **read every term's fact out loud**: that's the studying. Missed terms go on everyone's revision pile on that phone.
+6. One point per term. The first team to the target wins, and the summary shows the group's strongest and weakest topic.
 
-House rules: points to win (5 to 100), seconds a turn (10 to 90), and the **Chaos die**, which swaps in MIME (act it out), 3 WORDS (clues of three words or fewer) and ×2 faces.
+The board game's die (0, 1 or 2 off each turn) is an optional rule, off by default.
 
-## The quiz
+### Group quiz
 
-Single best answer, Kahoot-style. Play it with teams passing the phone, or on your own (remove every player but one).
-
-- **Spin** for a category: Spot diagnosis, Investigations, Management, Pharmacology, Mechanisms, Numbers or Classics. The wheel moves round the categories rather than landing on the same one twice.
-- Questions get harder as the rounds go on, and each device saves the questions it has asked so it doesn't repeat them until it has been through the rest.
-- **500** for a right answer, up to **500** more for speed, **+100** for each answer in a row after the first (up to +500), and the **last round counts double**. Each team gets one **50:50**.
-- The reveal explains the answer. **Every wrong answer goes on the revision pile** with its explanation.
-- At the end, the awards include your strongest and weakest category.
-
-## Revise
-
-- **Revision pile:** every term your team missed and every quiz question you got wrong, with its fact, the most-missed first. Remove a card with ×, or drill them all as flashcards.
-- **Study guide:** every term in the subjects you picked, topic by topic, with its fact. It's a one-page summary of the notes.
-- **Flashcards** (also on the cover): the pile first, or the whole selection if the pile's empty. Say the answer out loud, tap to flip, then mark it **Knew it** (it comes off the pile) or **Not yet** (it goes to the back of the stack).
+Teams take turns to answer single best answer questions against the clock, Kahoot-style: points for being right and for being quick, with a 50:50 for each team. Each reveal shows the explanation, and wrong answers go on the revision pile.
 
 ## Adding your own terms
 
-**Add terms** on the cover takes a term, a category and an optional fact. **Paste a list** adds many at once, one per line, written as `Term – fact`. Your terms join every game under the topic "Your own terms".
-
-They're saved on this phone. **Send as a link** shares them with your study group: whoever opens the link gets them added to their deck. No accounts.
+**Add your own terms** takes a term, a category and an optional fact. **Paste a list** adds many at once, one per line, written as `Term – fact`. Your terms appear in every mode under the topic "Your own terms". **Send as a link** shares them with your study group: whoever opens the link gets them added to their deck.
 
 ## On a PC
 
-- **1 to 5** mark terms and **N** deals the next card.
-- **1 to 4** (or **A to D**) answer a quiz question and **F** uses the 50:50.
-- **Space** flips a flashcard. **K** marks it known and **J** means not yet.
+- Practice questions: **1 to 4** (or **A to D**) to answer.
+- Flashcards: **Space** flips the card, then **K** for knew it and **J** for not yet.
+- 30 Seconds: **1 to 5** mark terms and **N** deals the next card.
+- Group quiz: **1 to 4** answer and **F** uses the 50:50.
 
 ## Saving
 
-Everything is saved on the phone in the browser: a game or quiz in progress (**Resume** brings it back after a refresh), the revision pile, your own terms and the topics you picked. The screen stays on during a turn, and the phone beeps for the last five seconds.
+Everything is saved on the phone, in the browser: your flashcard schedule, your practice results, the revision pile, your own terms, the topics you picked, and any game in progress. A different phone or browser starts fresh.
 
 ## Hosting
 
-It's a static site with no build step and no database. Serve the folder from anywhere: GitHub Pages, Vercel or Netlify. To run it locally:
+It's a static site with no build step and no database. It's hosted on Vercel (the `study-game` project), connected to this repo, so every push to `main` updates the live site. To run it locally:
 
 ```bash
 python3 -m http.server 8000
@@ -88,8 +91,8 @@ Then open http://localhost:8000. Opening `index.html` straight from the disk wor
 
 | File | What it is |
 | --- | --- |
-| `index.html` | The screens: cover and setup, add terms, incoming terms, up next, the 30 seconds, time's up and winner, the quiz's setup, spin, question, reveal and podium, revise, and flashcards. |
-| `game.js` | Game logic: loading the packs, filtering by subject, topic and level, dealing cards, the die, timer, swipe, scoring, the quiz, the revision pile, flashcards, share links and saving. |
+| `index.html` | The screens: home, flashcards, practice questions, revise (pile and study guide), add terms, 30 Seconds (setup, up next, the clock, time's up, winner) and the group quiz (setup, spin, question, reveal, podium). |
+| `game.js` | All the logic: loading the packs, filtering by subject, topic and depth, spaced repetition, practice questions, progress, the revision pile, 30 Seconds, the group quiz, share links and saving. |
 | `style.css` | The lecture-notes look. |
 | `packs/` | One file per subject, plus the format in `packs/README.md`. |
 | `tools/check-pack.js` | Checks the packs for format mistakes: `node tools/check-pack.js packs/*.js`. |

@@ -8,6 +8,7 @@
   const KEYS = {
     game: "study30.game", custom: "study30.custom", prefs: "study30.prefs", focus: "study30.focus",
     pile: "study30.pile", quizGame: "study30.quizgame", quizSeen: "study30.quizseen", quizPrefs: "study30.quizprefs",
+    srs: "study30.srs", qstats: "study30.qstats",
   };
   const LIMITS = { target: [5, 100], seconds: [10, 90] };
 
@@ -20,18 +21,9 @@
   const LEVELS = [[1, "Core"], [2, "+ Clinical"], [3, "+ Deep cuts"]];
   const OWN = "own"; // the topic key for terms added on this phone
 
-  // The classic die takes 0, 1 or 2 off the turn. The Chaos die keeps one of
-  // each and swaps the duplicates for faces that change the rules instead.
-  const CLASSIC_DIE = [0, 0, 1, 1, 2, 2];
-  const CHAOS_DIE = [0, 1, 2, "mime", "three", "double"];
-  const TWISTS = {
-    mime: { face: "MIME", big: "Mime it", banner: "Mime it · no talking", receipt: "Mime it",
-      note: "No talking this turn. Act everything out: signs, procedures, the lot. Nothing comes off." },
-    three: { face: "3 WORDS", big: "3 words", banner: "Three words per clue", receipt: "3 words",
-      note: "Every clue is three words or fewer. Nothing comes off." },
-    double: { face: "×2", big: "×2", banner: "Double points", receipt: "Double",
-      note: "Double points this turn, and nothing comes off." },
-  };
+  // The board game's die takes 0, 1 or 2 off the turn. It's optional and
+  // off by default: this is for studying, not for luck.
+  const DIE = [0, 0, 1, 1, 2, 2];
   const PIPS = { 0: [], 1: [4], 2: [2, 6] };
 
   // One highlighter per team, with a text colour that passes contrast on it.
@@ -48,8 +40,8 @@
 
   const $ = (sel) => document.querySelector(sel);
 
-  let setup = null;  // { names, target, seconds, chaos }
-  let game = null;   // { teams, target, seconds, chaos, current, deck, history }
+  let setup = null;  // { names, target, seconds, die }
+  let game = null;   // { teams, target, seconds, die, current, deck, history }
   let turn = null;   // { die, card: [term + got], from }
   let timerId = null;
   let wakeLock = null;
@@ -121,7 +113,9 @@
       handoff: `${team} up next · Study 30`,
       review: "Time's up · Study 30",
       winner: `🏆 ${team} win · Study 30`,
-      "quiz-setup": "The quiz · Study 30",
+      "quiz-setup": "Group quiz · Study 30",
+      group: "30 Seconds · Study 30",
+      practice: "Practice questions · Study 30",
       "quiz-turn": `${quizTeamName} up next · Study 30 quiz`,
       "quiz-reveal": "The answer · Study 30 quiz",
       "quiz-end": "🏆 The podium · Study 30 quiz",
@@ -322,6 +316,7 @@
       const old = list.find((p) => p.id === item.id);
       if (old) { old.misses = (old.misses || 1) + 1; old.at = Date.now(); }
       else list.push({ ...item, misses: 1, at: Date.now() });
+      schedule(item.id, false);
     }
     store.set(KEYS.pile, list.slice(-400));
   }
@@ -330,10 +325,81 @@
     store.set(KEYS.pile, pile().filter((p) => p.id !== id));
   }
 
+  // ------------------------------------------------------------------ spaced repetition
+  //
+  // Leitner boxes: each card you know moves up a box and comes back after
+  // the next interval; one you don't drops to box 0 and comes back today.
+  // From box 3 (a week) a term counts as mastered.
+
+  const DAY = 864e5;
+  const INTERVALS = [0, 1, 3, 7, 14, 30]; // days, by box
+  const MASTERED = 3;
+  const NEW_PER_SESSION = 15;
+
+  function srs() {
+    const m = store.get(KEYS.srs, {});
+    return m && typeof m === "object" ? m : {};
+  }
+
+  function schedule(id, knew) {
+    const m = srs();
+    const card = m[id] || { box: 0 };
+    card.box = knew ? Math.min(INTERVALS.length - 1, card.box + 1) : 0;
+    card.due = Date.now() + INTERVALS[card.box] * DAY;
+    m[id] = card;
+    store.set(KEYS.srs, m);
+  }
+
+  function qstats() {
+    const m = store.get(KEYS.qstats, {});
+    return m && typeof m === "object" ? m : {};
+  }
+
+  function recordAnswer(key, correct) {
+    const m = qstats();
+    const st = m[key] || { right: 0, wrong: 0 };
+    st[correct ? "right" : "wrong"]++;
+    st.last = correct;
+    m[key] = st;
+    store.set(KEYS.qstats, m);
+  }
+
   const termCard = (t) => ({
     id: `t:${dupKey(t.term)}`, front: t.term, back: t.why,
     sub: [CATS[t.cat], topicName(t.pack, t.topic)].filter(Boolean).join(" · "),
   });
+
+  const questionCard = (q) => ({
+    id: `q:${q.key}`, front: q.prompt, back: `${q.options[q.answer]}. ${q.why}`.trim(),
+    sub: `${QUIZ_KINDS[q.kind].title} · ${topicName(q.pack, q.topic)}`,
+  });
+
+  // Today's flashcards: the revision pile, then terms that are due, then a
+  // few new ones from the topics you picked, easiest first.
+  function studyQueue() {
+    const m = srs();
+    const now = Date.now();
+    const seen = new Set();
+    const out = [];
+    const add = (card) => { if (!seen.has(card.id)) { seen.add(card.id); out.push(card); } };
+    pile().forEach(add);
+    const terms = allTerms();
+    terms.filter((t) => m[termCard(t).id] && m[termCard(t).id].due <= now).map(termCard).forEach(add);
+    shuffle(terms.filter((t) => !m[termCard(t).id])).sort((a, b) => a.level - b.level)
+      .slice(0, NEW_PER_SESSION).map(termCard).forEach(add);
+    return out;
+  }
+
+  function dueCount() {
+    const m = srs();
+    const now = Date.now();
+    const ids = new Set(pile().map((p) => p.id));
+    for (const t of allTerms()) {
+      const c = m[termCard(t).id];
+      if (c && c.due <= now) ids.add(termCard(t).id);
+    }
+    return ids.size;
+  }
 
   // ------------------------------------------------------------------ sound + device
 
@@ -389,7 +455,7 @@
     if (!data || !Array.isArray(data.teams) || data.teams.length < MIN_TEAMS) return null;
     data.teams.forEach((t, i) => { if (typeof t.ink !== "number") t.ink = i % TEAM_INKS.length; });
     if (!Array.isArray(data.history)) data.history = [];
-    data.chaos = !!data.chaos;
+    data.die = !!data.die;
     if (!Array.isArray(data.deck)) data.deck = shuffle(allTerms());
     data.current = clampInt(data.current, 0, data.teams.length - 1, 0);
     return data;
@@ -404,7 +470,7 @@
       names: (prefill?.names ?? savedNames ?? ["Team 1", "Team 2"]).slice(0, MAX_TEAMS),
       target: clampInt(prefill?.target ?? prefs.target, ...LIMITS.target, 25),
       seconds: clampInt(prefill?.seconds ?? prefs.seconds, ...LIMITS.seconds, 30),
-      chaos: !!(prefill?.chaos ?? prefs.chaos),
+      die: !!(prefill?.die ?? prefs.die),
     };
     renderTeamInputs();
     renderSettings();
@@ -462,14 +528,53 @@
       renderFocus();
     })));
 
+    renderProgress();
     const terms = allTerms().length;
     const questions = quizBank().length;
     $("#focus-info").textContent = `${plural(terms, "term")} · ${plural(questions, "quiz question")} in this selection`;
     const subjects = focus.packs.map((id) => PACK.get(id).name);
     $("#deck-info").textContent = subjects.length > 2 ? `${subjects.length} subjects` : subjects.join(" + ");
+    $("#group-info").textContent = `${plural(terms, "term")} picked`;
     const enough = terms >= CARD_SIZE;
     $("#start-game").disabled = !enough;
     setupError(enough ? "" : ALL_PACKS.length ? DECK_SHORT : "No subject packs loaded.");
+  }
+
+  function renderProgress() {
+    const m = srs();
+    const st = qstats();
+    const due = dueCount();
+    const fresh = allTerms().filter((t) => !m[termCard(t).id]).length;
+    $("#stat-due").textContent = String(due);
+    $("#cards-note").textContent = due || fresh
+      ? `${due} due · ${Math.min(fresh, NEW_PER_SESSION)} new today`
+      : "All caught up. Pick more topics for new cards.";
+
+    const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+    const mastered = (list) => list.filter((t) => (m[termCard(t).id]?.box || 0) >= MASTERED).length;
+    const answered = (list) => list.filter((q) => st[q.key]);
+    const right = (list) => list.filter((q) => st[q.key] && st[q.key].last).length;
+
+    const terms = allTerms().filter((t) => t.topic !== OWN);
+    const qs = quizBank();
+    $("#stat-mastered").textContent = `${pct(mastered(terms), terms.length)}%`;
+    const tried = answered(qs);
+    $("#stat-accuracy").textContent = tried.length ? `${pct(right(tried), tried.length)}%` : "–";
+    const unseen = qs.length - tried.length;
+    $("#practice-note").textContent = qs.length
+      ? (unseen ? `${unseen} of ${qs.length} not tried yet` : `All ${qs.length} tried · ${right(qs)} right last time`)
+      : "No questions in these topics";
+
+    $("#subject-progress").replaceChildren(...focus.packs.map((id) => {
+      const pTerms = BANK_TERMS.filter((t) => t.pack === id && inFocus(t));
+      const pQs = qs.filter((q) => q.pack === id);
+      const share = pct(mastered(pTerms), pTerms.length);
+      return el("li", {},
+        el("div", { class: "sp-head" },
+          el("span", { class: "sp-name", text: PACK.get(id).name }),
+          el("span", { class: "mini", text: `${share}% mastered · ${right(pQs)}/${pQs.length} questions right` })),
+        el("div", { class: "bar", "aria-hidden": "true" }, el("i", { style: { width: `${share}%` } })));
+    }));
   }
 
   function renderTeamInputs() {
@@ -508,7 +613,7 @@
         btn.disabled = step < 0 ? setup[key] <= LIMITS[key][0] : setup[key] >= LIMITS[key][1];
       }
     }
-    $("#chaos").setAttribute("aria-checked", String(setup.chaos));
+    $("#use-die").setAttribute("aria-checked", String(setup.die));
   }
 
   document.querySelectorAll("[data-setting]").forEach((btn) => {
@@ -519,8 +624,8 @@
     });
   });
 
-  $("#chaos").addEventListener("click", () => {
-    setup.chaos = !setup.chaos;
+  $("#use-die").addEventListener("click", () => {
+    setup.die = !setup.die;
     renderSettings();
   });
 
@@ -537,7 +642,7 @@
     const lower = names.map((n) => n.toLowerCase());
     if (new Set(lower).size !== lower.length) return setupError("Give each team a different name.");
     setupError("");
-    store.set(KEYS.prefs, { names, target: setup.target, seconds: setup.seconds, chaos: setup.chaos });
+    store.set(KEYS.prefs, { names, target: setup.target, seconds: setup.seconds, die: setup.die });
     unlockAudio();
     startGame({ ...setup, names });
   });
@@ -548,12 +653,12 @@
     showHandoff();
   });
 
-  function startGame({ names, target, seconds, chaos }, deck) {
+  function startGame({ names, target, seconds, die }, deck) {
     game = {
       teams: names.map((name, i) => ({ name, score: 0, ink: i % TEAM_INKS.length })),
       target,
       seconds,
-      chaos,
+      die,
       current: 0,
       deck: deck && deck.length >= CARD_SIZE ? deck : shuffle(allTerms()),
       history: [],
@@ -684,10 +789,7 @@
     }
   });
 
-  $("#deck-back").addEventListener("click", () => {
-    renderFocus();
-    show("setup");
-  });
+  $("#deck-back").addEventListener("click", goHome);
 
   // ------------------------------------------------------------------ incoming share links
 
@@ -781,12 +883,13 @@
     setPlates($("#team-up"), currentTeam().name);
     renderDie(null);
     $("#die-big").textContent = "Roll";
-    $("#die-note").textContent = game.chaos
-      ? "Chaos die is on. Some faces change the rules for this turn."
-      : "Whatever it lands on comes off this turn's score.";
-    $("#roll").hidden = false;
+    $("#die-note").textContent = "Whatever it lands on comes off this turn's score.";
+    // Without the die, the turn is one tap away.
+    if (!game.die) turn.die = 0;
+    $(".die-row").hidden = !game.die;
+    $("#roll").hidden = !game.die;
     $("#roll").disabled = false;
-    $("#go-wrap").hidden = true;
+    $("#go-wrap").hidden = game.die;
     show("handoff");
   }
 
@@ -798,38 +901,29 @@
       die.setAttribute("aria-label", "Die not rolled yet");
       return;
     }
-    if (typeof face === "number") {
+    {
       const pips = el("span", { class: "pips" });
       for (let i = 0; i < 9; i++) pips.append(el("i", { class: PIPS[face].includes(i) ? "on" : "" }));
       die.replaceChildren(pips);
       die.setAttribute("aria-label", `Die shows ${face}`);
-    } else {
-      die.classList.add("twist", face);
-      die.replaceChildren(el("span", { class: "face" + (face === "double" ? " big" : ""), text: TWISTS[face].face }));
-      die.setAttribute("aria-label", `Die shows ${TWISTS[face].big}`);
     }
     die.classList.add(shaking ? "shake" : "landed");
   }
 
   function describeDie(face) {
-    if (typeof face === "number") {
-      $("#die-big").textContent = face ? `−${face}` : "0";
-      $("#die-note").textContent = ["Lucky. Nothing comes off this turn.",
-        "One comes off whatever you score.", "Two come off whatever you score."][face];
-    } else {
-      $("#die-big").textContent = TWISTS[face].big;
-      $("#die-note").textContent = TWISTS[face].note;
-    }
+    $("#die-big").textContent = face ? `−${face}` : "0";
+    $("#die-note").textContent = ["Nothing comes off this turn.",
+      "One comes off whatever you score.", "Two come off whatever you score."][face];
   }
 
   function dieLabel(face) {
-    if (typeof face !== "number") return TWISTS[face].big;
+    if (!game.die) return `First to ${game.target}`;
     return face ? `Die −${face}` : "Die 0";
   }
 
   $("#roll").addEventListener("click", () => {
     unlockAudio();
-    const faces = game.chaos ? CHAOS_DIE : CLASSIC_DIE;
+    const faces = DIE;
     const result = faces[rand(faces.length)];
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let flips = reduceMotion ? 0 : 8;
@@ -867,9 +961,7 @@
   }
 
   function turnPoints(got, face) {
-    if (face === "double") return got * 2;
-    if (typeof face === "number") return Math.max(0, got - face);
-    return got;
+    return Math.max(0, got - (face || 0));
   }
 
   // Tap toggles a term; a swipe to the right always marks it as got.
@@ -962,9 +1054,6 @@
 
     $("#play-team").textContent = currentTeam().name;
     $("#play-die").textContent = dieLabel(turn.die);
-    const twist = TWISTS[turn.die];
-    $("#twist").hidden = !twist;
-    $("#twist").textContent = twist ? twist.banner : "";
     renderCard();
 
     show("play");
@@ -1078,8 +1167,7 @@
     const points = turnPoints(got, turn.die);
     const face = turn.die;
     const missed = turn.card.length - got;
-    const dieValue = face === "double" ? "×2" : typeof face === "number" && face > 0 ? `−${face}` : "0";
-    const dieName = typeof face === "number" ? "Die" : `Die: ${TWISTS[face].receipt}`;
+    const dieValue = face > 0 ? `−${face}` : "0";
     const line = (left, right, cls = "") => el("div", { class: "r-line " + cls }, el("span", { text: left }), right);
 
     $("#receipt").replaceChildren(
@@ -1087,7 +1175,7 @@
       el("div", { class: "r-sub", text: `Turn ${pad(turnNumber())} · ${team.name}` }),
       el("div", { class: "r-rule", "aria-hidden": "true" }),
       line("Guessed", el("span", { text: String(got) })),
-      line(dieName, el("span", { text: dieValue })),
+      game.die ? line("Die", el("span", { text: dieValue })) : null,
       missed ? line("To the revision pile", el("span", { text: String(missed) })) : null,
       el("div", { class: "r-rule double", "aria-hidden": "true" }),
       line("This turn", el("b", { text: `+${points}` }), "r-total"),
@@ -1109,6 +1197,7 @@
       points,
       missed: missed.map((t) => t.term),
       seen: turn.card.length,
+      topics: turn.card.map((t) => [topicName(t.pack, t.topic), t.got ? 1 : 0]),
     });
 
     if (team.score >= game.target) return showWinner(team);
@@ -1167,24 +1256,28 @@
       awards.push({ label: "Clean sheet", value: "Not one term missed all game", badge: "0" });
     }
 
-    const lost = game.teams.map(() => 0);
-    h.forEach((t) => { if (typeof t.die === "number") lost[t.team] += Math.min(t.die, t.got); });
-    const unluckiest = lost.indexOf(Math.max(...lost));
-    if (lost[unluckiest] > 0) {
-      awards.push({ label: "Worst luck with the die", value: `${name(unluckiest)} (lost ${lost[unluckiest]})`, badge: `−${lost[unluckiest]}` });
+    // How each topic went, across every card this game.
+    const byTopic = new Map();
+    for (const t of h) for (const [topic, got] of t.topics || []) {
+      if (!topic) continue;
+      const v = byTopic.get(topic) || { got: 0, all: 0 };
+      v.got += got;
+      v.all++;
+      byTopic.set(topic, v);
     }
-
-    const mimes = h.filter((t) => t.die === "mime");
-    if (mimes.length) {
-      const m = mimes.reduce((a, b) => (b.got > a.got ? b : a));
-      awards.push({ label: "Best mime", value: `${name(m.team)} (${m.got} in silence)`, badge: String(m.got) });
+    const ranked = [...byTopic].filter(([, v]) => v.all >= 2).sort((a, b) => b[1].got / b[1].all - a[1].got / a[1].all);
+    if (ranked.length >= 2) {
+      const [best, bv] = ranked[0];
+      const [worst, wv] = ranked[ranked.length - 1];
+      awards.push({ label: "Strongest topic", value: `${best} (${bv.got} of ${bv.all})`, badge: "✓" });
+      if (wv.got < wv.all) awards.push({ label: "Weakest topic", value: `${worst} (${wv.got} of ${wv.all})`, badge: "✗" });
     }
     return awards;
   }
 
   function pileNote(node) {
     const n = pile().length;
-    node.textContent = n ? `${plural(n, "term")} on your revision pile. Open Flashcards from the cover to go through them.` : "";
+    node.textContent = n ? `${plural(n, "term")} on your revision pile. Flashcards on the home screen will bring them back.` : "";
   }
 
   function showWinner(team) {
@@ -1205,15 +1298,15 @@
 
   $("#rematch").addEventListener("click", () => {
     // Carry on through the same deck so a rematch doesn't repeat terms straight away.
-    const { teams, target, seconds, chaos, deck } = game;
-    startGame({ names: teams.map((t) => t.name), target, seconds, chaos }, deck);
+    const { teams, target, seconds, die, deck } = game;
+    startGame({ names: teams.map((t) => t.name), target, seconds, die }, deck);
   });
 
   $("#new-game").addEventListener("click", () => {
-    const { teams, target, seconds, chaos } = game;
+    const { teams, target, seconds, die } = game;
     game = null;
-    initSetup({ names: teams.map((t) => t.name), target, seconds, chaos });
-    show("setup");
+    initSetup({ names: teams.map((t) => t.name), target, seconds, die });
+    show("group");
   });
 
   // ------------------------------------------------------------------ the quiz
@@ -1364,7 +1457,7 @@
   });
 
   $("#open-quiz").addEventListener("click", openQuiz);
-  $("#quiz-back").addEventListener("click", () => { renderFocus(); show("setup"); });
+  $("#quiz-back").addEventListener("click", goHome);
 
   $("#quiz-add-team").addEventListener("click", () => {
     quizSetup.names.push(`Team ${quizSetup.names.length + 1}`);
@@ -1637,6 +1730,7 @@
     qturn.ms = ms;
     qturn.lostStreak = correct ? 0 : team.streak;
 
+    recordAnswer(q.key, correct);
     if (correct) {
       team.right++;
       team.streak++;
@@ -1644,8 +1738,7 @@
     } else {
       team.wrong++;
       team.streak = 0;
-      addToPile([{ id: `q:${q.key}`, front: q.prompt, back: `${q.options[q.answer]}. ${q.why}`.trim(),
-        sub: `${QUIZ_KINDS[q.kind].title} · ${topicName(q.pack, q.topic)}` }]);
+      addToPile([questionCard(q)]);
     }
     const { points, parts } = scoreAnswer(team, correct, ms);
     team.score += points;
@@ -1790,7 +1883,7 @@
     $("#q-final").replaceChildren(...ranked.map((t, i) =>
       el("li", {}, el("span", { text: `${solo() ? "" : `${i + 1}. `}${t.name} · ${t.right}/${t.right + t.wrong} right` }), el("span", { text: t.score.toLocaleString("en") }))));
     const n = pile().length;
-    $("#quiz-pile").textContent = n ? `${plural(n, "card")} on your revision pile, with the explanations. Open Flashcards from the cover to go through them.` : "";
+    $("#quiz-pile").textContent = n ? `${plural(n, "card")} on your revision pile, with the explanations. Flashcards on the home screen will bring them back.` : "";
 
     show("quiz-end");
     fanfare();
@@ -1834,7 +1927,7 @@
     }
     const drill = el("div", { class: "cta" }, el("button", { type: "button", class: "btn btn-primary" },
       el("span", { text: `Flashcards · ${plural(list.length, "card")}` }), svg('<svg aria-hidden="true" width="30" height="20" viewBox="0 0 30 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"><path d="M2 10h24M18 2l8 8-8 8"/></svg>')));
-    drill.querySelector("button").addEventListener("click", () => startCards(pile(), true, "revise"));
+    drill.querySelector("button").addEventListener("click", () => startCards(pile(), "revise"));
     const items = list.slice().sort((a, b) => (b.misses || 1) - (a.misses || 1) || b.at - a.at).map((p) => {
       const remove = el("button", { type: "button", class: "x", "aria-label": `Take ${p.front} off the pile`, text: "×" });
       remove.addEventListener("click", () => { removeFromPile(p.id); renderRevise(); });
@@ -1855,7 +1948,7 @@
   }
 
   function studyGuide() {
-    const out = [el("p", { class: "small", text: "Every term in the subjects you picked on the cover, topic by topic, with its fact." })];
+    const out = [el("p", { class: "small", text: "Every term in the subjects you picked on the home screen, topic by topic, with its fact." })];
     for (const id of focus.packs) {
       const p = PACK.get(id);
       out.push(el("h2", { class: "label guide-pack" }, el("span", { class: "num", text: p.name })));
@@ -1877,21 +1970,30 @@
   }
 
   $("#open-revise").addEventListener("click", () => openRevise());
-  $("#revise-back").addEventListener("click", () => { renderFocus(); show("setup"); });
+  $("#revise-back").addEventListener("click", goHome);
 
   // ------------------------------------------------------------------ flashcards
   //
   // Front: the term (or the question). Say the answer out loud, then show
-  // it. "Knew it" takes a pile card off the pile; "Not yet" sends it to the
-  // back of the stack.
+  // it. "Knew it" moves the card up a box (and off the pile); "Not yet"
+  // drops it to box 0 and sends it to the back of today's stack.
 
-  let cards = null; // { queue, total, knew, fromPile, back }
+  let cards = null; // { queue, total, knew, back }
 
-  function startCards(items, fromPile, back) {
-    if (!items.length) return toast("Nothing to go through yet.");
-    cards = { queue: shuffle(items.slice()), total: items.length, knew: 0, fromPile, back };
+  function startCards(items, back) {
+    if (!items.length) return toast("Nothing due. Pick more topics on the home screen for new cards.");
+    cards = { queue: items.slice(), total: items.length, knew: 0, back };
     show("cards");
     renderFlash();
+  }
+
+  function nextDueText() {
+    const m = srs();
+    const ids = new Set(allTerms().map((t) => termCard(t).id));
+    const next = Object.entries(m).filter(([id, c]) => ids.has(id) && c.due > Date.now()).map(([, c]) => c.due).sort((x, y) => x - y)[0];
+    if (!next) return "";
+    const days = Math.max(1, Math.round((next - Date.now()) / DAY));
+    return days === 1 ? "Next cards are due tomorrow." : `Next cards are due in ${days} days.`;
   }
 
   function renderFlash() {
@@ -1900,15 +2002,13 @@
     $("#cards-count").textContent = `${done} / ${cards.total} · ${cards.knew} known`;
     $("#cards-fuse").style.width = `${(done / cards.total) * 100}%`;
     if (!card) {
-      $("#flash-sub").textContent = "Done";
-      $("#flash-front").textContent = cards.fromPile
-        ? (pile().length ? `${plural(pile().length, "card")} still on the pile.` : "The pile's empty. Nice.")
-        : `${cards.knew} of ${cards.total} first time.`;
+      $("#flash-sub").textContent = "Session done";
+      $("#flash-front").textContent = `${cards.knew} card${cards.knew === 1 ? "" : "s"} moved up. ${nextDueText()}`;
+      $("#flash-front").classList.add("long");
       $("#flash-back").hidden = true;
       $("#flash-show-wrap").hidden = true;
       $("#flash-rate").hidden = true;
       $("#flash-hint").textContent = "Tap Done to head back.";
-      fanfare();
       return;
     }
     $("#flash-sub").textContent = card.sub || "";
@@ -1926,20 +2026,20 @@
     $("#flash-back").hidden = false;
     $("#flash-show-wrap").hidden = true;
     $("#flash-rate").hidden = false;
-    $("#flash-hint").textContent = "Be honest.";
+    $("#flash-hint").textContent = "Be honest: it only works if you are.";
   }
 
   function rateFlash(knew) {
     if (!cards || !cards.queue.length || $("#flash-rate").hidden) return;
     const card = cards.queue.shift();
+    schedule(card.id, knew);
     if (knew) {
       cards.knew++;
-      if (cards.fromPile) removeFromPile(card.id);
+      removeFromPile(card.id);
       haptic(15);
     } else {
       cards.queue.push(card);
       cards.total++;
-      if (!cards.fromPile) addToPile([card]);
     }
     renderFlash();
   }
@@ -1952,16 +2052,137 @@
     const back = cards && cards.back;
     cards = null;
     if (back === "revise") return openRevise();
-    renderFocus();
-    show("setup");
+    goHome();
   });
 
-  // From the cover: the pile first if there is one, otherwise the terms
-  // in the topics you picked.
-  $("#open-cards").addEventListener("click", () => {
-    const list = pile();
-    startCards(list.length ? list : allTerms().map(termCard), !!list.length);
+  $("#open-cards").addEventListener("click", () => startCards(studyQueue(), "home"));
+
+  // ------------------------------------------------------------------ practice questions
+  //
+  // Untimed single best answer, one question at a time, with the
+  // explanation straight after each. Questions you've never tried come
+  // first, then ones you got wrong last time.
+
+  const PRACTICE_SIZE = 10;
+  let practice = null; // { list, i, results: [correct] }
+
+  function practiceSet() {
+    const st = qstats();
+    const rank = (q) => (!st[q.key] ? 0 : st[q.key].last ? 2 : 1);
+    return shuffle(quizBank().slice()).sort((a, b) => rank(a) - rank(b)).slice(0, PRACTICE_SIZE);
+  }
+
+  function startPractice() {
+    const list = practiceSet();
+    if (!list.length) return toast("No questions in the topics you picked.");
+    practice = { list, i: 0, results: [] };
+    $("#practice-q").hidden = false;
+    $("#practice-done").hidden = true;
+    show("practice");
+    renderPractice();
+  }
+
+  function renderPractice() {
+    const q = practice.list[practice.i];
+    $("#practice-count").textContent = `Question ${practice.i + 1} of ${practice.list.length}`;
+    $("#practice-fuse").style.width = `${(practice.i / practice.list.length) * 100}%`;
+    $("#pq-topic").textContent = `${PACK.get(q.pack).name} · ${topicName(q.pack, q.topic)} · ${QUIZ_KINDS[q.kind].title}`;
+    $("#pq-prompt").textContent = q.prompt;
+    $("#pq-prompt").classList.toggle("long", q.prompt.length > 120);
+    $("#pq-tiles").replaceChildren(...q.options.map((opt, i) => {
+      const btn = el("button", { type: "button", class: "answer" },
+        el("span", { class: "letter", "aria-hidden": "true", text: "ABCD"[i] }), el("span", { class: "opt", text: opt }));
+      btn.addEventListener("click", () => answerPractice(i));
+      return el("li", {}, btn);
+    }));
+    $("#pq-explain").hidden = true;
+    $("#pq-next-wrap").hidden = true;
+    window.scrollTo(0, 0);
+  }
+
+  function answerPractice(choice) {
+    if (!practice || practice.results.length > practice.i) return;
+    const q = practice.list[practice.i];
+    const correct = choice === q.answer;
+    practice.results.push(correct);
+    recordAnswer(q.key, correct);
+    if (!correct) addToPile([questionCard(q)]);
+    else removeFromPile(questionCard(q).id);
+    [...$("#pq-tiles").querySelectorAll(".answer")].forEach((btn, i) => {
+      btn.disabled = true;
+      if (i === q.answer) btn.classList.add("right");
+      else if (i === choice) btn.classList.add("wrong");
+      else btn.classList.add("out");
+    });
+    $("#pq-explain").replaceChildren(
+      el("span", { class: `verdict ${correct ? "ok" : "no"}`, text: correct ? "Correct" : `Not quite: it's ${q.options[q.answer]}` }),
+      q.why ? el("p", { text: q.why }) : null,
+      correct ? null : el("span", { class: "mini", text: "Added to your revision pile" }));
+    $("#pq-explain").hidden = false;
+    $("#pq-next-label").textContent = practice.i === practice.list.length - 1 ? "See how I did" : "Next question";
+    $("#pq-next-wrap").hidden = false;
+    haptic(correct ? 20 : [60, 40, 60]);
+    $("#pq-next").focus({ preventScroll: true });
+  }
+
+  $("#pq-next").addEventListener("click", () => {
+    if (!practice || practice.results.length <= practice.i) return;
+    practice.i++;
+    if (practice.i < practice.list.length) return renderPractice();
+    finishPractice();
   });
+
+  function finishPractice() {
+    const right = practice.results.filter(Boolean).length;
+    const total = practice.results.length;
+    $("#practice-count").textContent = "Done";
+    $("#practice-fuse").style.width = "100%";
+    $("#pd-score").textContent = `${right} / ${total}`;
+    $("#pd-score").classList.toggle("wrong", right * 2 < total);
+    $("#pd-word").textContent = right === total ? "Every one right."
+      : right * 2 >= total ? "A pass. The ones you missed are on your revision pile."
+        : "Worth another look. The ones you missed are on your revision pile.";
+    const byTopic = new Map();
+    practice.list.slice(0, total).forEach((q, i) => {
+      const name = `${PACK.get(q.pack).name} · ${topicName(q.pack, q.topic)}`;
+      const v = byTopic.get(name) || { right: 0, all: 0 };
+      v.all++;
+      if (practice.results[i]) v.right++;
+      byTopic.set(name, v);
+    });
+    $("#pd-topics").replaceChildren(...[...byTopic].sort((a, b) => a[1].right / a[1].all - b[1].right / b[1].all).map(([name, v]) =>
+      el("li", {}, el("span", { class: "t", text: name }), el("span", { class: "c", text: `${v.right} / ${v.all}` }))));
+    const wrong = practice.list.filter((_, i) => practice.results[i] === false).map(questionCard);
+    $("#pd-review-wrap").hidden = !wrong.length;
+    $("#pd-review-label").textContent = `Review my ${wrong.length === 1 ? "mistake" : `${wrong.length} mistakes`}`;
+    practice.wrong = wrong;
+    $("#practice-q").hidden = true;
+    $("#practice-done").hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  $("#pd-review").addEventListener("click", () => startCards(practice.wrong, "home"));
+  $("#pd-again").addEventListener("click", startPractice);
+  $("#pd-home").addEventListener("click", goHome);
+  $("#practice-back").addEventListener("click", () => {
+    if (practice && practice.results.length && !$("#practice-q").hidden) return finishPractice();
+    goHome();
+  });
+  $("#open-practice").addEventListener("click", startPractice);
+
+  // ------------------------------------------------------------------ navigation
+
+  function goHome() {
+    renderFocus();
+    show("setup");
+  }
+
+  $("#open-guide").addEventListener("click", () => openRevise("guide"));
+  $("#open-group").addEventListener("click", () => {
+    initSetup();
+    show("group");
+  });
+  $("#group-back").addEventListener("click", goHome);
 
   // ------------------------------------------------------------------ keyboard
 
@@ -1978,6 +2199,9 @@
       const i = "1234".indexOf(key) >= 0 ? "1234".indexOf(key) : "abcd".indexOf(key);
       if (i >= 0 && !qturn.hidden.includes(i)) { e.preventDefault(); answer(i); }
       else if (key === "f") useFifty();
+    } else if (screen === "practice" && practice && !$("#practice-q").hidden) {
+      const i = "1234".indexOf(key) >= 0 ? "1234".indexOf(key) : "abcd".indexOf(key);
+      if (i >= 0 && practice.results.length === practice.i) { e.preventDefault(); answerPractice(i); }
     } else if (screen === "cards") {
       if (key === " " || key === "enter") { e.preventDefault(); $("#flash-rate").hidden ? flipFlash() : rateFlash(true); }
       else if (key === "k") rateFlash(true);
