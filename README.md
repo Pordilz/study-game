@@ -4,8 +4,6 @@ A study app for medical students, built from your own lecture notes. On your own
 
 It runs in a phone browser and saves everything on the phone, so there's nothing to sign up for. It looks like a set of lecture notes: ruled paper with a red margin, highlighter, and an ECG trace for the clock.
 
-**Live:** https://study-game.vercel.app
-
 The content comes from the "An Approach to Everything" notes, with 9 subjects, 62 topics, about 1,200 terms and 400 quiz questions:
 
 | Subject | Topics |
@@ -79,7 +77,7 @@ Everything is saved on the phone, in the browser: your flashcard schedule, your 
 
 ## Hosting
 
-It's a static site with no build step and no database. It's hosted on Vercel (the `study-game` project), connected to this repo, so every push to `main` updates the live site. To run it locally:
+It's a static site with no build step and no database. To host it on Vercel, import this repo at [vercel.com/new](https://vercel.com/new) with the framework preset set to **Other** and no build command. Every push to `main` then updates the live site. To run it locally:
 
 ```bash
 python3 -m http.server 8000
