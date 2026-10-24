@@ -11,6 +11,7 @@ PACKS.push({
     myositis: "Polymyositis & dermatomyositis",
     myelo: "Myelopathy",
     spa: "Spondyloarthritis",
+    septic: "Septic arthritis",
   },
   terms: [
     // [term, category, topic, level, note]
@@ -37,10 +38,10 @@ PACKS.push({
     ["Anti-CCP antibodies", "test", "ra", 1, "Highly specific for RA and present early; rheumatoid factor is less specific (~70% sensitive)."],
     ["Rheumatoid factor", "test", "ra", 1, "Positive in ~70% of RA but also in other CTDs, infection and healthy elderly people."],
     ["Periarticular osteopenia", "test", "ra", 2, "Early RA X-ray sign with soft tissue swelling; later erosions and joint space loss."],
-    ["Methotrexate", "drug", "ra", 1, "First-line DMARD, given once WEEKLY with folic acid. Watch FBC and LFTs; can cause pneumonitis."],
+    ["Methotrexate", "drug", "ra", 1, "First-line DMARD: 7.5 mg once WEEKLY, up to 25 mg, with weekly folic acid. Check FBC, LFTs, creatinine; pneumonitis."],
     ["Hydroxychloroquine", "drug", "ra", 2, "Antimalarial DMARD; risk of retinopathy, so baseline and regular eye checks."],
     ["Sulfasalazine", "drug", "ra", 2, "DMARD built up over weeks; monitor FBC and LFTs closely in the first months."],
-    ["TNF-alpha inhibitors", "drug", "ra", 2, "Biologics (e.g. infliximab) for refractory disease; screen for latent TB first."],
+    ["TNF-alpha inhibitors", "drug", "ra", 2, "Biologics (e.g. infliximab): specialist-only, not on the SA EML. Screen and treat latent TB first."],
     ["DMARD window", "classic", "ra", 3, "Start DMARDs within ~3 months of symptoms to prevent irreversible erosions; benefit takes 6–12 weeks."],
     ["Steroid bridging", "drug", "ra", 3, "Short prednisone courses cover flares or the lag before DMARDs work; avoid long-term (osteoporosis)."],
 
@@ -64,9 +65,9 @@ PACKS.push({
     ["Hyperuricaemia", "physio", "gout", 1, "Raised serum urate; may be normal during an acute attack, so it doesn't rule gout out."],
     ["Thiazide diuretics", "drug", "gout", 2, "Raise urate and can trigger gout; loop diuretics, low-dose aspirin and ethambutol do too."],
     ["Purine-rich diet", "physio", "gout", 2, "Alcohol (esp. beer), organ meats and seafood raise urate and provoke attacks."],
-    ["Allopurinol", "drug", "gout", 1, "Xanthine oxidase inhibitor for long-term urate lowering; titrate to urate <0.36 mmol/L, dose-adjust in CKD."],
-    ["Colchicine", "drug", "gout", 2, "Treats acute flares and prevents flares when urate lowering starts; diarrhoea is the dose-limiting effect."],
-    ["NSAIDs for acute gout", "drug", "gout", 1, "First-line for a flare if no contraindication; steroids are the alternative (e.g. peptic ulcer, CKD)."],
+    ["Allopurinol", "drug", "gout", 1, "Start low (100 mg, less in CKD) once a flare settles; titrate to urate <0.36 mmol/L. Don't stop it during a flare."],
+    ["Colchicine", "drug", "gout", 2, "Not used for acute gout in the SA STG (NSAID or prednisone instead). Diarrhoea is the dose-limiting effect."],
+    ["NSAIDs for acute gout", "drug", "gout", 1, "First-line for a flare, e.g. ibuprofen; oral prednisone if NSAIDs are unsafe (peptic ulcer, CKD, heart failure)."],
     ["Urate-lowering therapy indications", "classic", "gout", 3, "≥2 attacks a year, tophi, or urate kidney stones."],
 
     // ---- Systemic sclerosis ----
@@ -85,7 +86,7 @@ PACKS.push({
     ["Interstitial lung disease", "dx", "ssc", 1, "Lung fibrosis, more common in diffuse SSc; also in RA, myositis and with methotrexate."],
     ["Pulmonary arterial hypertension", "dx", "ssc", 3, "Late complication typical of limited SSc; exertional breathlessness with a loud P2."],
     ["ACE inhibitors in scleroderma", "drug", "ssc", 2, "Drug class of choice for scleroderma renal crisis (e.g. enalapril/captopril)."],
-    ["Calcium channel blockers", "drug", "ssc", 1, "Nifedipine or amlodipine for Raynaud's; sildenafil if severe ischaemia."],
+    ["Calcium channel blockers", "drug", "ssc", 1, "Nifedipine or amlodipine for Raynaud's; sildenafil (specialist) if severe digital ischaemia."],
 
     // ---- Myositis ----
     ["Polymyositis", "dx", "myositis", 2, "Autoimmune inflammation of skeletal muscle: symmetrical proximal weakness and raised CK."],
@@ -118,6 +119,13 @@ PACKS.push({
     ["Dorsal columns", "physio", "myelo", 1, "Carry vibration and proprioception; ascend ipsilaterally and cross in the medulla."],
     ["MRI whole spine", "test", "myelo", 1, "Investigation of choice for suspected cord compression or myelitis."],
     ["High-dose dexamethasone", "drug", "myelo", 2, "Reduces oedema in malignant cord compression while definitive surgery/radiotherapy is arranged."],
+
+    // ---- Spondyloarthritis ----
+    // ---- Septic arthritis ----
+    ["Septic arthritis", "dx", "septic", 1, "Hot, swollen, painful joint with fever; usually S. aureus. Aspirate before antibiotics; untreated it destroys the joint fast."],
+    ["Gonococcal arthritis", "dx", "septic", 2, "Young sexually active adult: migratory arthralgia, tenosynovitis, skin pustules. Treat with IV ceftriaxone (SA STG)."],
+    ["Joint drainage", "drug", "septic", 2, "Pus must be drained (needle aspiration or surgical washout) as well as giving IV antibiotics."],
+    ["Turbid synovial fluid", "test", "septic", 2, "Septic aspirate: cloudy, often >50 000 white cells/µL, mostly neutrophils; send Gram stain, culture, crystals."],
 
     // ---- Spondyloarthritis ----
     ["Spondyloarthritis", "dx", "spa", 1, "Seronegative family: axial arthritis, enthesitis, dactylitis, uveitis. Includes AS, psoriatic, reactive, IBD-related."],
@@ -170,7 +178,7 @@ PACKS.push({
       prompt: "Before starting infliximab for refractory RA, which screening is essential?",
       options: ["Bone density scan", "Latent TB", "Eye examination", "Urate level"],
       answer: "Latent TB",
-      why: "TNF blockade can reactivate latent TB, so screen and treat first." },
+      why: "TNF blockade can reactivate latent TB, a big risk in South Africa, so screen and treat first." },
 
     // OA
     { kind: "vignette", topic: "oa", level: 1,
@@ -196,7 +204,7 @@ PACKS.push({
 
     // Gout
     { kind: "vignette", topic: "gout", level: 1,
-      prompt: "55-year-old man on bendroflumethiazide wakes with a hot, red, exquisitely tender big toe. Most likely?",
+      prompt: "55-year-old man on hydrochlorothiazide wakes with a hot, red, exquisitely tender big toe. Most likely?",
       options: ["Septic arthritis", "Cellulitis", "Pseudogout", "Gout"],
       answer: "Gout",
       why: "Acute first MTP arthritis in a man on a thiazide is classic gout (podagra)." },
@@ -328,5 +336,17 @@ PACKS.push({
       options: ["HLA-DR4", "HLA-B27", "HLA-B51", "HLA-DQ2"],
       answer: "HLA-B27",
       why: "Most AS patients are HLA-B27 positive; DR4 links to RA, B51 to Behçet's, DQ2 to coeliac." },
+
+    // Septic arthritis
+    { kind: "manage", topic: "septic", level: 2,
+      prompt: "Fever and a hot swollen knee; aspirate is turbid with Gram-positive cocci in clusters. Empirical IV antibiotic in the SA STG?",
+      options: ["Cefazolin", "Ceftriaxone", "Metronidazole", "Gentamicin"],
+      answer: "Cefazolin",
+      why: "S. aureus is commonest; the SA STG uses IV cefazolin (cloxacillin IV left the EML) plus joint drainage. Ceftriaxone is for gonococcal arthritis." },
+    { kind: "vignette", topic: "septic", level: 2,
+      prompt: "22-year-old woman: migratory joint pains, wrist tenosynovitis, a few pustules on the hands, then a swollen knee. Likely cause?",
+      options: ["Gonococcal arthritis", "Rheumatoid arthritis", "Gout", "Reactive arthritis"],
+      answer: "Gonococcal arthritis",
+      why: "Disseminated gonococcal infection gives the arthritis–dermatitis–tenosynovitis picture; treat with IV ceftriaxone and trace partners." },
   ],
 });
