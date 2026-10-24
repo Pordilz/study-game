@@ -6,7 +6,7 @@ Each file here is one subject. It adds itself to `PACKS`, and `index.html` loads
 node tools/check-pack.js packs/*.js
 ```
 
-The packs were written from the "An Approach to Everything" lecture notes, one topic per note. The facts are paraphrased rather than copied, and a handful of errors in the notes were corrected to standard teaching (for example, *N. meningitidis* is Gram-negative, and a red cell lives about 120 days).
+The packs were written from the "An Approach to Everything" lecture notes, one topic per note. The facts are paraphrased rather than copied, and a handful of errors in the notes were corrected to standard teaching (for example, *N. meningitidis* is Gram-negative, and a red cell lives about 120 days). Management was then aligned with the SA Adult Hospital Level STG (6th edition 2024) and the national HIV and TB guidelines. When you add or fix a pack, keep to those, use EML medicine names, and mark drugs that aren't on the EML.
 
 ## Format
 

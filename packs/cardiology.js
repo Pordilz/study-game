@@ -164,6 +164,8 @@ PACKS.push({
     ["Kussmaul's sign", "sign", "peri", 1, "JVP rises on inspiration – constrictive pericarditis or restrictive cardiomyopathy."],
     ["Pericardial knock", "sign", "peri", 3, "Early diastolic sound as ventricular filling stops abruptly against a rigid pericardium."],
     ["Pericardial calcification", "test", "peri", 3, "Eggshell calcification around a normal-sized heart on CXR suggests constrictive pericarditis."],
+    ["Tuberculous pericarditis", "dx", "peri", 1, "Commonest cause of pericardial effusion in SA, often with HIV; treat with standard TB drugs; risk of later constriction."],
+    ["Pericardial fluid ADA", "test", "peri", 2, "Adenosine deaminase ≥35 U/L in an exudative effusion strongly supports TB pericarditis where TB is common."],
     ["Dressler syndrome", "classic", "peri", 1, "Autoimmune pericarditis weeks after an MI; listen for a friction rub."],
     ["Prominent y descent", "physio", "peri", 3, "Steep early-diastolic JVP fall in constriction; in tamponade the y descent is lost instead."],
 
@@ -304,6 +306,12 @@ PACKS.push({
       options: ["Hypokalaemia", "Hyperkalaemia", "Hypernatraemia", "Hypocalcaemia"],
       answer: "Hypokalaemia",
       why: "Digoxin competes with K⁺ at the Na⁺/K⁺-ATPase, so low K (often diuretic-induced) enhances toxicity." },
+
+    { kind: "manage", topic: "arr", level: 2,
+      prompt: "35-year-old woman with rheumatic mitral stenosis has new atrial fibrillation. CHA2DS2-VASc is 1. Stroke prevention?",
+      options: ["Warfarin, target INR 2–3", "Aspirin 150 mg daily", "No anticoagulation needed", "Rivaroxaban 20 mg daily"],
+      answer: "Warfarin, target INR 2–3",
+      why: "AF with rheumatic MS has a very high stroke risk whatever the score; warfarin beat rivaroxaban in rheumatic AF (INVICTUS)." },
 
     // ---- ECG ----
     { kind: "numbers", topic: "ecg", level: 1,
@@ -494,6 +502,11 @@ PACKS.push({
       options: ["Cardiac tamponade", "Dilated cardiomyopathy", "Liver cirrhosis", "Constrictive pericarditis"],
       answer: "Constrictive pericarditis",
       why: "Kussmaul's sign, pericardial knock and calcification; treated by surgical pericardiectomy." },
+    { kind: "manage", topic: "peri", level: 2,
+      prompt: "HIV-positive man with a large pericardial effusion, no tamponade. Tap: lymphocytic exudate, ADA 70 U/L, GeneXpert negative. Next step?",
+      options: ["Start standard TB treatment", "Ibuprofen and colchicine only", "Immediate pericardiectomy", "Repeat echo in 3 months"],
+      answer: "Start standard TB treatment",
+      why: "In SA a lymphocytic exudate with high ADA is TB until proven otherwise; Xpert is often negative on fluid. Start ART too if not on it." },
     { kind: "numbers", topic: "peri", level: 2,
       prompt: "Pulsus paradoxus is an inspiratory fall in systolic BP of more than…",
       options: ["5 mmHg", "10 mmHg", "20 mmHg", "40 mmHg"],

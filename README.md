@@ -99,4 +99,10 @@ Then open http://localhost:8000. Opening `index.html` straight from the disk wor
 | `icons/`, `manifest.webmanifest` | The icon, so "Add to Home Screen" opens the game full screen. |
 | `fonts/` | Bricolage Grotesque and Space Mono, bundled so the game works offline. Both are under the SIL Open Font License; the licence files are in the folder. |
 
+## South African context
+
+Management, drug choices and medicine names follow South African practice: the National Department of Health's *Standard Treatment Guidelines and Essential Medicines List, Hospital Level (Adults)*, 6th edition 2024. HIV and TB follow the 2023 national ART guidelines and the 2023 RR-TB guidelines. Drugs that aren't on the public-sector EML are marked as such. Facts about the STG carry "(SA STG)" where they're stated.
+
+The guideline PDF couldn't be opened while the packs were reviewed, so they were checked against NEMLC reports, the national guidelines and published SA guidance found online. Some management points couldn't be confirmed against the 2024 text. Examples are the empirical endocarditis regimen, the exact DKA protocol, pneumonia antibiotic wording and the stroke thrombolysis window. Check those against the current STG before you rely on them, and fix any you find in `packs/` (see [packs/README.md](packs/README.md)).
+
 The content is a study aid written from student notes. It isn't clinical guidance.
