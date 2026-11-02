@@ -1080,14 +1080,15 @@
     updatePlayCount(false);
   }
 
-  // Once every term on the card is got, the describer can deal another card
-  // and keep going on the same clock.
+  // Once three terms on the card are got, the describer can deal another
+  // card and keep going on the same clock; the rest count as missed.
   function updatePlayCount(justGot) {
     const cardNo = turn.from / CARD_SIZE + 1;
     $("#got-count").textContent = gotCount();
     $("#got-of").textContent = turn.card.length;
     $("#card-no").textContent = cardNo > 1 ? `Card ${cardNo} · ` : "";
-    const cleared = turn.card.slice(turn.from).every((t) => t.got);
+    const onCard = turn.card.slice(turn.from);
+    const cleared = onCard.filter((t) => t.got).length >= Math.min(3, onCard.length);
     const wrap = $("#next-card-wrap");
     if (cleared && wrap.hidden && justGot) {
       beep(990, 0.12, 0.15);
@@ -2446,6 +2447,8 @@
         : out ? `Time's up with ${ticked} of ${flipNeeded()}. Try again, or → to move on (they'll go on your pile).`
           : studyPrefs.seconds ? `Get ${flipNeeded()} right inside the ${studyPrefs.seconds} seconds to flip the card.` : `Get ${flipNeeded()} right to flip the card.`;
     $("#st-prev").disabled = study.i === 0;
+    $("#st-next").textContent = study.i === study.cards.length - 1 ? "Finish →" : "Next →";
+    $("#st-next").classList.toggle("go", study.flipped || open || out);
   }
 
   // The sides swap halfway through the turn, when the card is edge-on.

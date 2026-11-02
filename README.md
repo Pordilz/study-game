@@ -60,7 +60,7 @@ At the top, **Your progress** shows how many cards are due today, the share of t
 1. Split into teams (2 to 6). On each turn, one person describes and the rest of their team guesses.
 2. The describer sees five terms and has 30 seconds to get the team to say them, in any order. Each card tries to cover five kinds of term (diagnosis, sign, investigation, drug, mechanism, eponym), and terms that share a word never land on the same card.
 3. No saying the term or any part of it, no abbreviations of it, no "sounds like", no spelling it out.
-4. Tap a term, or swipe it right, the moment your team gets it. Got all five with time left? Tap **Card cleared · next card**.
+4. Tap a term, or swipe it right, the moment your team gets it. Got three with time left? Tap **Got 3 · next card** to deal five more (the rest count as missed).
 5. When time's up, **read every term's fact out loud**: that's the studying. Missed terms go on everyone's revision pile on that phone.
 6. One point per term. There's no point limit unless you set one: play as long as you like, then tap **End game · see the results** for the standings and the group's strongest and weakest topic.
 

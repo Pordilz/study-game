@@ -812,6 +812,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus
 .flip-btn { justify-content: center; font-size: 16px; }
 #st-hint { min-height: 1.5em; }
 .nav-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; align-items: center; gap: 10px; }
+/* Study mode: the controls stay on screen however long the card is */
+.st-controls {
+  position: sticky; bottom: 0; z-index: 30; display: flex; flex-direction: column; gap: 6px;
+  margin: 0 -20px; padding: 8px 20px max(10px, env(safe-area-inset-bottom));
+  background: var(--paper); border-top: 2px solid var(--ink);
+}
+.st-controls .nav-row { grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr); }
+.next-btn { justify-content: center; font-size: 16px; }
+.next-btn.go { background: var(--ink); border-color: var(--ink); color: var(--paper-hi); }
+.st-controls .keys { margin: 0; }
 .round.nav { width: 52px; height: 52px; font-size: 22px; }
 .flip-btn { min-height: 52px; }
 .keys { opacity: 0.6; }

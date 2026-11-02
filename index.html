@@ -163,7 +163,7 @@
           <li>On each turn, one person describes and the rest of their team guesses.</li>
           <li>The describer gets five terms and 30 seconds to get the team to say them, in any order.</li>
           <li>No saying the term or any part of it, no abbreviations of it, no "sounds like", no spelling it out.</li>
-          <li>Tap a term, or swipe it right, the moment your team gets it. Cleared all five with time left? Deal the next card.</li>
+          <li>Tap a term, or swipe it right, the moment your team gets it. Got three with time left? Deal the next card.</li>
           <li>When time's up, read every term's fact out loud: that's the studying. Missed terms go on the revision pile.</li>
           <li>One point per term guessed. There's no point limit unless you set one: play as long as you like, then tap End game to see the results.</li>
         </ol>
@@ -251,13 +251,15 @@
         </div>
       </div>
 
-      <div class="nav-row">
-        <button id="st-prev" class="round nav" type="button" aria-label="Previous card">←</button>
-        <button id="st-flip" class="btn btn-primary btn-sm flip-btn" type="button">Flip</button>
-        <button id="st-next" class="round nav" type="button" aria-label="Next card">→</button>
+      <div class="st-controls">
+        <p id="st-hint" class="small center"></p>
+        <div class="nav-row">
+          <button id="st-prev" class="round nav" type="button" aria-label="Previous card">←</button>
+          <button id="st-flip" class="btn btn-primary btn-sm flip-btn" type="button">Flip</button>
+          <button id="st-next" class="btn btn-outline btn-sm next-btn" type="button">Next →</button>
+        </div>
+        <p class="small center keys">1–5 tick terms · Space flips · ← → move · P pauses</p>
       </div>
-      <p id="st-hint" class="small center"></p>
-      <p class="small center keys">1–5 tick terms · Space flips · ← → move · P pauses</p>
     </section>
 
     <!-- ============================================================ study mode: end -->
@@ -424,7 +426,7 @@
       <ul id="terms" class="terms"></ul>
       <div id="next-card-wrap" class="cta cta-sm" hidden>
         <button id="next-card" class="btn btn-primary btn-sm" type="button">
-          <span>Card cleared · next card</span>
+          <span>Got 3 · next card</span>
           <svg aria-hidden="true" width="30" height="20" viewBox="0 0 30 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"><path d="M2 10h24M18 2l8 8-8 8"/></svg>
         </button>
       </div>
