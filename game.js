@@ -8,7 +8,7 @@
   const KEYS = {
     game: "study30.game", custom: "study30.custom", prefs: "study30.prefs", focus: "study30.focus",
     pile: "study30.pile", quizGame: "study30.quizgame", quizSeen: "study30.quizseen", quizPrefs: "study30.quizprefs",
-    srs: "study30.srs", qstats: "study30.qstats",
+    srs: "study30.srs", qstats: "study30.qstats", study: "study30.study", studyPrefs: "study30.studyprefs",
   };
   const LIMITS = { target: [5, 100], seconds: [10, 90] };
 
@@ -116,6 +116,9 @@
       "quiz-setup": "Group quiz · Study 30",
       group: "30 Seconds · Study 30",
       practice: "Practice questions · Study 30",
+      "study-setup": "Study mode · Study 30",
+      study: "Study mode · Study 30",
+      "study-done": "Study mode · Study 30",
       "quiz-turn": `${quizTeamName} up next · Study 30 quiz`,
       "quiz-reveal": "The answer · Study 30 quiz",
       "quiz-end": "🏆 The podium · Study 30 quiz",
@@ -2023,6 +2026,8 @@
 
   function flipFlash() {
     if (!cards || !cards.queue.length) return;
+    // Flip back and forth as often as you like; rating stays available.
+    if (!$("#flash-back").hidden) { $("#flash-back").hidden = true; return; }
     $("#flash-back").hidden = false;
     $("#flash-show-wrap").hidden = true;
     $("#flash-rate").hidden = false;
@@ -2170,6 +2175,295 @@
   });
   $("#open-practice").addEventListener("click", startPractice);
 
+  // ------------------------------------------------------------------ study mode
+  //
+  // The content without the game: one card at a time, a clock to explain
+  // it against, and a card you can flip, flip back, revisit or skip
+  // whenever you like. Marking is optional: "Still learning" puts the card
+  // on the revision pile, "Got it" takes it off and moves it up a box.
+
+  const STUDY_LIMITS = { seconds: [0, 120] };
+  const STUDY_KINDS = [["both", "Terms + questions"], ["terms", "Terms"], ["questions", "Questions"]];
+  const STUDY_ORDERS = [["shuffle", "Shuffled"], ["topic", "Topic by topic"]];
+  let studyPrefs = null; // { kind, seconds, autoflip, order }
+  let study = null;      // { ids, i, marks, flipped }
+  let studyTimer = null;
+  let studyClock = null; // { left, total, running }
+
+  // Every card, by id, so a saved session can be rebuilt after a refresh.
+  function studyCardFor(id) {
+    if (id.startsWith("q:")) {
+      const q = QUIZ_ALL.find((x) => `q:${x.key}` === id);
+      return q && {
+        id, kind: "q", front: q.prompt, options: q.options,
+        sub: `${QUIZ_KINDS[q.kind].title} · ${PACK.get(q.pack).name} · ${topicName(q.pack, q.topic)}`,
+        title: q.options[q.answer], back: q.why, pile: questionCard(q),
+      };
+    }
+    const t = [...BANK_TERMS, ...customTerms()].find((x) => termCard(x).id === id);
+    return t && {
+      id, kind: "t", front: t.term, options: [],
+      sub: [CATS[t.cat], t.pack ? PACK.get(t.pack).name : "", topicName(t.pack, t.topic), t.topic === OWN ? "" : "●".repeat(t.level)].filter(Boolean).join(" · "),
+      title: t.term, back: t.why || "No fact saved for this one.", pile: termCard(t),
+    };
+  }
+
+  function studyIds() {
+    const kind = studyPrefs.kind;
+    const terms = kind === "questions" ? [] : allTerms();
+    const qs = kind === "terms" ? [] : quizBank();
+    if (studyPrefs.order === "topic") {
+      // Topic by topic, terms first, easiest first within each topic.
+      const order = (x) => `${x.pack || "~"}|${x.topic}`;
+      const items = [...terms.map((t) => ({ o: order(t), l: t.level, k: 0, id: termCard(t).id })),
+        ...qs.map((q) => ({ o: order(q), l: q.level, k: 1, id: `q:${q.key}` }))];
+      return items.sort((a, b) => a.o.localeCompare(b.o) || a.k - b.k || a.l - b.l).map((x) => x.id);
+    }
+    return shuffle([...terms.map((t) => termCard(t).id), ...qs.map((q) => `q:${q.key}`)]);
+  }
+
+  function openStudySetup() {
+    const p = store.get(KEYS.studyPrefs, {}) || {};
+    studyPrefs = {
+      kind: STUDY_KINDS.some(([k]) => k === p.kind) ? p.kind : "both",
+      seconds: clampInt(p.seconds, ...STUDY_LIMITS.seconds, 30),
+      autoflip: p.autoflip !== false,
+      order: STUDY_ORDERS.some(([k]) => k === p.order) ? p.order : "shuffle",
+    };
+    renderStudySetup();
+    const saved = store.get(KEYS.study, null);
+    $("#ss-resume").hidden = !(saved && Array.isArray(saved.ids) && saved.ids.length);
+    if (saved && saved.ids) $("#ss-resume").textContent = `Carry on where I left off (card ${saved.i + 1} of ${saved.ids.length})`;
+    show("study-setup");
+  }
+
+  function renderStudySetup() {
+    $("#ss-kind").replaceChildren(...STUDY_KINDS.map(([k, label]) =>
+      chip(label, studyPrefs.kind === k, () => { studyPrefs.kind = k; renderStudySetup(); })));
+    $("#ss-order").replaceChildren(...STUDY_ORDERS.map(([k, label]) =>
+      chip(label, studyPrefs.order === k, () => { studyPrefs.order = k; renderStudySetup(); })));
+    $("#ss-seconds").textContent = studyPrefs.seconds ? studyPrefs.seconds : "Off";
+    for (const btn of document.querySelectorAll("[data-ssetting]")) {
+      const step = Number(btn.dataset.step);
+      btn.disabled = step < 0 ? studyPrefs.seconds <= STUDY_LIMITS.seconds[0] : studyPrefs.seconds >= STUDY_LIMITS.seconds[1];
+    }
+    $("#ss-autoflip").setAttribute("aria-checked", String(studyPrefs.autoflip));
+    $("#ss-autoflip").disabled = !studyPrefs.seconds;
+    const n = studyIds().length;
+    $("#ss-info").textContent = `${plural(n, "card")} picked`;
+    $("#ss-start-label").textContent = n ? `Start · ${plural(n, "card")}` : "Start";
+    $("#ss-start").disabled = !n;
+    $("#ss-error").hidden = !!n;
+    $("#ss-error").textContent = n ? "" : "No cards in the topics you picked. Go back and pick more.";
+  }
+
+  document.querySelectorAll("[data-ssetting]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      studyPrefs.seconds = clampInt(studyPrefs.seconds + Number(btn.dataset.step), ...STUDY_LIMITS.seconds, studyPrefs.seconds);
+      renderStudySetup();
+    });
+  });
+  $("#ss-autoflip").addEventListener("click", () => { studyPrefs.autoflip = !studyPrefs.autoflip; renderStudySetup(); });
+  $("#ss-back").addEventListener("click", goHome);
+  $("#ss-start").addEventListener("click", () => {
+    store.set(KEYS.studyPrefs, studyPrefs);
+    unlockAudio();
+    startStudy(studyIds());
+  });
+  $("#ss-resume").addEventListener("click", () => {
+    const saved = store.get(KEYS.study, null);
+    if (!saved) return;
+    store.set(KEYS.studyPrefs, studyPrefs);
+    unlockAudio();
+    const ids = saved.ids.filter((id) => studyCardFor(id));
+    study = { ids, i: clampInt(saved.i, 0, Math.max(0, ids.length - 1), 0), marks: saved.marks || {}, flipped: false };
+    showStudyCard();
+    show("study");
+  });
+
+  function startStudy(ids) {
+    if (!ids.length) return toast("No cards to go through.");
+    study = { ids, i: 0, marks: {}, flipped: false };
+    saveStudy();
+    showStudyCard();
+    show("study");
+  }
+
+  const saveStudy = () => store.set(KEYS.study, { ids: study.ids, i: study.i, marks: study.marks });
+
+  function showStudyCard() {
+    const card = studyCardFor(study.ids[study.i]);
+    if (!card) return nextStudy();
+    study.flipped = false;
+    clearTimeout(turning);
+    $("#st-card .card-inner").classList.remove("turning");
+    $("#st-count").textContent = `${study.i + 1} / ${study.ids.length}`;
+    $("#st-card").classList.remove("flipped");
+    $("#st-front-sub").textContent = card.sub;
+    $("#st-front-text").textContent = card.front;
+    $("#st-front-text").classList.toggle("long", card.front.length > 70);
+    $("#st-front-options").replaceChildren(...card.options.map((o) => el("li", { text: o })));
+    $("#st-back-sub").textContent = card.kind === "q" ? "The answer" : card.sub;
+    $("#st-back-title").textContent = card.title;
+    $("#st-back-text").textContent = card.back;
+    const mark = study.marks[card.id];
+    $("#st-again").setAttribute("aria-pressed", String(mark === "again"));
+    $("#st-got").setAttribute("aria-pressed", String(mark === "got"));
+    $("#st-prev").disabled = study.i === 0;
+    saveStudy();
+    startStudyClock();
+  }
+
+  // The sides swap halfway through the turn, when the card is edge-on.
+  let turning = null;
+  function flipStudy() {
+    if (!study) return;
+    study.flipped = !study.flipped;
+    const flipped = study.flipped;
+    const inner = $("#st-card .card-inner");
+    clearTimeout(turning);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      $("#st-card").classList.toggle("flipped", flipped);
+      return;
+    }
+    inner.classList.remove("turning");
+    void inner.offsetWidth; // restart the animation on a quick double flip
+    inner.classList.add("turning");
+    turning = setTimeout(() => {
+      $("#st-card").classList.toggle("flipped", flipped);
+      turning = setTimeout(() => inner.classList.remove("turning"), 170);
+    }, 150);
+  }
+
+  function nextStudy() {
+    if (study.i >= study.ids.length - 1) return finishStudy();
+    study.i++;
+    showStudyCard();
+  }
+
+  function prevStudy() {
+    if (study.i === 0) return;
+    study.i--;
+    showStudyCard();
+  }
+
+  function markStudy(mark) {
+    const card = studyCardFor(study.ids[study.i]);
+    if (!card) return;
+    if (study.marks[card.id] === mark) {
+      delete study.marks[card.id];
+    } else {
+      study.marks[card.id] = mark;
+      if (mark === "again") addToPile([card.pile]);
+      else { removeFromPile(card.id); schedule(card.id, true); }
+      haptic(15);
+    }
+    saveStudy();
+    // Marking moves you on; you can always come back with ←.
+    if (study.marks[card.id]) setTimeout(nextStudy, 180);
+    else showStudyCard();
+  }
+
+  // ---- the clock: one per card, restarts on each card, never decides anything
+
+  function startStudyClock() {
+    stopStudyClock();
+    const total = studyPrefs.seconds * 1000;
+    $(".st-clock-row").hidden = !total;
+    $("#st-fuse").parentElement.hidden = !total;
+    if (!total) return;
+    studyClock = { left: total, total, last: Date.now(), running: true, lastWhole: null };
+    $("#st-pause").textContent = "Pause";
+    tickStudy();
+    studyTimer = setInterval(tickStudy, 100);
+    keepScreenOn(true);
+  }
+
+  function tickStudy() {
+    const c = studyClock;
+    if (!c) return;
+    const now = Date.now();
+    if (c.running) c.left = Math.max(0, c.left - (now - c.last));
+    c.last = now;
+    const whole = Math.ceil(c.left / 1000);
+    if (whole !== c.lastWhole) {
+      setPlates($("#st-clock"), String(whole));
+      $("#st-clock-sr").textContent = `${whole} seconds left`;
+      $("#study").classList.toggle("urgent", whole <= 5);
+      if (c.lastWhole !== null && whole > 0 && whole <= 3 && c.running) beep(880, 0.05, 0.08);
+      c.lastWhole = whole;
+    }
+    $("#st-fuse").style.width = `${(c.left / c.total) * 100}%`;
+    if (c.left <= 0) {
+      stopStudyClock();
+      beep(440, 0.4, 0.2);
+      haptic([120, 60, 120]);
+      if (studyPrefs.autoflip && !study.flipped) flipStudy();
+    }
+  }
+
+  function stopStudyClock() {
+    clearInterval(studyTimer);
+    studyTimer = null;
+    keepScreenOn(false);
+    $("#study").classList.remove("urgent");
+  }
+
+  function pauseStudy() {
+    const c = studyClock;
+    if (!c || c.left <= 0) return startStudyClock(); // time's up: restart this card's clock
+    c.running = !c.running;
+    c.last = Date.now();
+    $("#st-pause").textContent = c.running ? "Pause" : "Resume";
+  }
+
+  function finishStudy() {
+    stopStudyClock();
+    const marks = Object.values(study.marks);
+    const got = marks.filter((m) => m === "got").length;
+    const again = marks.filter((m) => m === "again").length;
+    $("#sd-info").textContent = plural(study.ids.length, "card");
+    $("#sd-got").textContent = got;
+    $("#sd-again").textContent = again;
+    $("#sd-unmarked").textContent = study.ids.length - got - again;
+    $("#sd-again-wrap").hidden = !again;
+    $("#sd-again-label").textContent = `Go through the ${again === 1 ? "one" : again} I'm still learning`;
+    store.remove(KEYS.study);
+    show("study-done");
+  }
+
+  $("#st-card").addEventListener("click", flipStudy);
+  $("#st-flip").addEventListener("click", flipStudy);
+  $("#st-next").addEventListener("click", nextStudy);
+  $("#st-prev").addEventListener("click", prevStudy);
+  $("#st-again").addEventListener("click", () => markStudy("again"));
+  $("#st-got").addEventListener("click", () => markStudy("got"));
+  $("#st-pause").addEventListener("click", pauseStudy);
+  $("#st-back").addEventListener("click", () => { stopStudyClock(); goHome(); });
+
+  // Swipe the card left for the next one, right for the one before.
+  (() => {
+    let x0 = null, y0 = 0;
+    const node = $("#st-card");
+    node.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    node.addEventListener("touchend", (e) => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      const dy = e.changedTouches[0].clientY - y0;
+      x0 = null;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        e.preventDefault();
+        if (dx < 0) nextStudy(); else prevStudy();
+      }
+    });
+  })();
+
+  $("#sd-again-btn").addEventListener("click", () =>
+    startStudy(study.ids.filter((id) => study.marks[id] === "again")));
+  $("#sd-restart").addEventListener("click", () => startStudy(study.ids.slice()));
+  $("#sd-home").addEventListener("click", goHome);
+  $("#open-study").addEventListener("click", openStudySetup);
+
   // ------------------------------------------------------------------ navigation
 
   function goHome() {
@@ -2202,6 +2496,13 @@
     } else if (screen === "practice" && practice && !$("#practice-q").hidden) {
       const i = "1234".indexOf(key) >= 0 ? "1234".indexOf(key) : "abcd".indexOf(key);
       if (i >= 0 && practice.results.length === practice.i) { e.preventDefault(); answerPractice(i); }
+    } else if (screen === "study" && study) {
+      if (key === " " || key === "enter" || key === "f") { e.preventDefault(); flipStudy(); }
+      else if (key === "arrowright") { e.preventDefault(); nextStudy(); }
+      else if (key === "arrowleft") { e.preventDefault(); prevStudy(); }
+      else if (key === "p") pauseStudy();
+      else if (key === "1") markStudy("again");
+      else if (key === "2") markStudy("got");
     } else if (screen === "cards") {
       if (key === " " || key === "enter") { e.preventDefault(); $("#flash-rate").hidden ? flipFlash() : rateFlash(true); }
       else if (key === "k") rateFlash(true);

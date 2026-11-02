@@ -38,6 +38,12 @@ At the top, **Your progress** shows how many cards are due today, the share of t
 
 ## Studying on your own
 
+- **Study mode.** One card at a time, with the content front and centre and no scoring. Each card is a term (with its key fact) or a question (with its options, answer and explanation). You explain it out loud against a clock, then flip it to check.
+  - **Flip whenever you like:** tap the card, press Flip or press Space. Tap again to flip back, as often as you want.
+  - **Move freely:** go back and forward with the arrows, or swipe the card.
+  - **The timer** is set per card (10 to 120 seconds, or off). It restarts on each card, can be paused, and can turn the card over for you when it reaches 0.
+  - **Marking is optional.** **Still learning** puts a card on the revision pile and **Got it** takes it off. At the end you can go back through just the ones you're still learning.
+  - **Choose your cards:** terms, questions or both, shuffled or topic by topic. If you leave part-way, you can carry on where you left off.
 - **Flashcards (spaced repetition).** Each session starts with your revision pile, then the cards that are due, then up to 15 new terms from your topics, easiest first. Say the answer out loud, flip the card, and mark it honestly:
   - **Knew it:** the card moves up a box and comes back after 1, then 3, 7, 14 and 30 days. A term counts as mastered from the 7-day box.
   - **Not yet:** the card goes back to the start and comes round again before the session ends.
@@ -69,6 +75,7 @@ Teams take turns to answer single best answer questions against the clock, Kahoo
 ## On a PC
 
 - Practice questions: **1 to 4** (or **A to D**) to answer.
+- Study mode: **Space** flips, **← →** move between cards, **P** pauses the timer, **1** still learning, **2** got it.
 - Flashcards: **Space** flips the card, then **K** for knew it and **J** for not yet.
 - 30 Seconds: **1 to 5** mark terms and **N** deals the next card.
 - Group quiz: **1 to 4** answer and **F** uses the 50:50.
