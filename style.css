@@ -817,3 +817,4 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus
 .keys { opacity: 0.6; }
 @media (hover: none) { .keys { display: none; } }
 @media (prefers-reduced-motion: reduce) { .card-inner.turning { animation: none; } }
+.study-card.locked .terms { opacity: 0.5; }

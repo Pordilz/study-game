@@ -55,7 +55,7 @@
         <h2 id="solo-h" class="label"><span class="num">02</span> Study on your own</h2>
         <div class="cta">
           <button id="open-study" class="btn btn-primary study-btn" type="button">
-            <span class="study-btn-text"><span>Study mode</span><span id="study-note" class="study-note">30 Seconds on your own: five terms, explain each, flip to check</span></span>
+            <span class="study-btn-text"><span>Study mode</span><span id="study-note" class="study-note">30 Seconds on your own: get three right in 30 seconds to flip the card</span></span>
             <svg aria-hidden="true" width="30" height="20" viewBox="0 0 30 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"><path d="M2 10h24M18 2l8 8-8 8"/></svg>
           </button>
         </div>
@@ -123,10 +123,10 @@
         <h2 id="rules-h" class="label"><span class="num">02</span> Rules</h2>
         <div class="rules-grid">
           <div class="stepper">
-            <span class="mini" id="target-label">Points to win</span>
+            <span class="mini" id="target-label">Points to win (∞ = no limit)</span>
             <div class="stepper-row">
               <button class="round" type="button" data-setting="target" data-step="-5" aria-label="Fewer points to win">−</button>
-              <output id="target" class="stepper-value" aria-labelledby="target-label">25</output>
+              <output id="target" class="stepper-value" aria-labelledby="target-label">∞</output>
               <button class="round" type="button" data-setting="target" data-step="5" aria-label="More points to win">+</button>
             </div>
           </div>
@@ -165,7 +165,7 @@
           <li>No saying the term or any part of it, no abbreviations of it, no "sounds like", no spelling it out.</li>
           <li>Tap a term, or swipe it right, the moment your team gets it. Cleared all five with time left? Deal the next card.</li>
           <li>When time's up, read every term's fact out loud: that's the studying. Missed terms go on the revision pile.</li>
-          <li>One point per term guessed. First team to the target wins.</li>
+          <li>One point per term guessed. There's no point limit unless you set one: play as long as you like, then tap End game to see the results.</li>
         </ol>
       </details>
     </section>
@@ -177,7 +177,7 @@
         <span id="ss-info"></span>
       </header>
       <h1 class="plates headline" data-text="Study mode">Study mode</h1>
-      <p class="small">30 Seconds on your own, for studying. Each card has five terms from the topics picked on the home screen. Explain each one out loud and tick it off. Once you've ticked three, flip the card to check all five facts. No teams, no die, no points.</p>
+      <p class="small">30 Seconds on your own, for studying. Each card has five terms from the topics picked on the home screen. Explain each one out loud and tick it off. Get three right inside the 30 seconds and the card flips to show all five facts. No teams, no die, no points.</p>
 
       <section class="block" aria-labelledby="ss-timer-h">
         <h2 id="ss-timer-h" class="label"><span class="num">01</span> Timer</h2>
@@ -194,7 +194,7 @@
         <div class="switch-row">
           <div class="switch-text">
             <span class="mini" id="ss-autoflip-label">Flip when time's up</span>
-            <span class="small">Turns the card over at 0, however many you've ticked</span>
+            <span class="small">If you got three, the card turns over by itself at 0</span>
           </div>
           <button id="ss-autoflip" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="ss-autoflip-label"><span></span></button>
         </div>
@@ -218,7 +218,7 @@
         <ol>
           <li>Start the clock. You get five terms, each a different kind of thing: a diagnosis, a sign, an investigation, a drug, a mechanism or an eponym.</li>
           <li>Explain each term out loud as if you were teaching it, then tap it, or swipe it right, to tick it off.</li>
-          <li>Once you've ticked three, you can flip the card. When time's up it flips anyway, unless you've turned that off.</li>
+          <li>Get three right before the clock runs out and you can flip the card. Run out of time first and it stays shut: try the card again, or move on and the terms go on your revision pile.</li>
           <li>The back shows all five terms with the fact to remember. Anything you didn't get, untick it there.</li>
           <li>Unticked terms go on your revision pile and come up first in Flashcards. Move on to the next card, or go back to an earlier one.</li>
         </ol>
@@ -406,7 +406,7 @@
           <svg aria-hidden="true" width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="3"><circle cx="13" cy="14" r="10"/><path d="M13 8v6l4 3M10 2h6"/></svg>
         </button>
       </div>
-      <button id="quit" class="link-btn center" type="button">End game</button>
+      <button id="quit" class="link-btn center" type="button">End game · see the results</button>
     </section>
 
     <!-- ============================================================ the 30 seconds -->

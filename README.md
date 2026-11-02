@@ -41,7 +41,8 @@ At the top, **Your progress** shows how many cards are due today, the share of t
 - **Study mode: 30 Seconds on your own.** No teams, no die, no points.
   - **Each card has five terms on the clock**, dealt like the game: each a different kind of term where possible, and no two that give each other away.
   - **Explain each term out loud** as if you were teaching it, then tap it or swipe it right to tick it off.
-  - **After three ticks you can flip the card**, or when time's up (it flips by itself at 0 unless you turn that off). The back shows all five terms with their facts. Untick anything you didn't really know, and flip back and forth as often as you like.
+  - **Get three right inside the 30 seconds and you can flip the card.** The back shows all five terms with their facts. Untick anything you didn't really know, and flip back and forth as often as you like. If you got three, the card turns over by itself at 0 (you can switch that off).
+  - **If the clock beats you, the card stays shut.** Tap **Try this card again** for a fresh 30 seconds, or move on and the terms go on your revision pile. With the timer off, any three ticks open the card.
   - **Unticked terms go on your revision pile** when you move on. At the end you can deal just the ones you're still learning.
   - **The timer** is set per card (10 to 120 seconds, or off) and can be paused.
   - **Order:** shuffled or topic by topic. You can go back to an earlier card, and carry on where you left off if you close the page.
@@ -61,7 +62,7 @@ At the top, **Your progress** shows how many cards are due today, the share of t
 3. No saying the term or any part of it, no abbreviations of it, no "sounds like", no spelling it out.
 4. Tap a term, or swipe it right, the moment your team gets it. Got all five with time left? Tap **Card cleared · next card**.
 5. When time's up, **read every term's fact out loud**: that's the studying. Missed terms go on everyone's revision pile on that phone.
-6. One point per term. The first team to the target wins, and the summary shows the group's strongest and weakest topic.
+6. One point per term. There's no point limit unless you set one: play as long as you like, then tap **End game · see the results** for the standings and the group's strongest and weakest topic.
 
 The board game's die (0, 1 or 2 off each turn) is an optional rule, off by default.
 

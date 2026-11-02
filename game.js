@@ -10,7 +10,7 @@
     pile: "study30.pile", quizGame: "study30.quizgame", quizSeen: "study30.quizseen", quizPrefs: "study30.quizprefs",
     srs: "study30.srs", qstats: "study30.qstats", study: "study30.study", studyPrefs: "study30.studyprefs",
   };
-  const LIMITS = { target: [5, 100], seconds: [10, 90] };
+  const LIMITS = { target: [0, 100], seconds: [10, 90] }; // target 0: no point limit
 
   // What a term is. Every pack uses these, so a card can mix subjects and
   // still cover five different kinds of thing.
@@ -471,7 +471,7 @@
     const savedNames = Array.isArray(prefs.names) && prefs.names.length >= MIN_TEAMS ? prefs.names : null;
     setup = {
       names: (prefill?.names ?? savedNames ?? ["Team 1", "Team 2"]).slice(0, MAX_TEAMS),
-      target: clampInt(prefill?.target ?? prefs.target, ...LIMITS.target, 25),
+      target: clampInt(prefill?.target ?? prefs.goal, ...LIMITS.target, 0),
       seconds: clampInt(prefill?.seconds ?? prefs.seconds, ...LIMITS.seconds, 30),
       die: !!(prefill?.die ?? prefs.die),
     };
@@ -610,7 +610,7 @@
 
   function renderSettings() {
     for (const key of ["target", "seconds"]) {
-      $("#" + key).textContent = setup[key];
+      $("#" + key).textContent = key === "target" && !setup[key] ? "∞" : setup[key];
       for (const btn of document.querySelectorAll(`[data-setting="${key}"]`)) {
         const step = Number(btn.dataset.step);
         btn.disabled = step < 0 ? setup[key] <= LIMITS[key][0] : setup[key] >= LIMITS[key][1];
@@ -645,7 +645,7 @@
     const lower = names.map((n) => n.toLowerCase());
     if (new Set(lower).size !== lower.length) return setupError("Give each team a different name.");
     setupError("");
-    store.set(KEYS.prefs, { names, target: setup.target, seconds: setup.seconds, die: setup.die });
+    store.set(KEYS.prefs, { names, goal: setup.target, seconds: setup.seconds, die: setup.die });
     unlockAudio();
     startGame({ ...setup, names });
   });
@@ -849,6 +849,7 @@
   // ------------------------------------------------------------------ standings
 
   function progress(score, target, color) {
+    if (!target) return null; // no point limit: just the score
     if (target <= 50) {
       const cols = Math.min(target, 25);
       const dots = el("div", { class: "dots", "aria-hidden": "true",
@@ -868,7 +869,7 @@
           el("span", { class: "chip", "aria-hidden": "true", style: { background: ink.bg, color: ink.fg }, text: LETTERS[i] }),
           el("span", { class: "team-name" }, el("span", { text: t.name })),
           el("span", { class: "team-score", text: String(t.score) }),
-          el("span", { class: "team-of", text: `/${game.target}` })),
+          game.target ? el("span", { class: "team-of", text: `/${game.target}` }) : null),
         progress(t.score, game.target, ink.bg));
     }));
   }
@@ -881,7 +882,7 @@
   function showHandoff() {
     turn = { die: null, card: null };
     $("#turn-no").textContent = `Turn ${pad(turnNumber())}`;
-    $("#first-to").textContent = `First to ${game.target}`;
+    $("#first-to").textContent = game.target ? `First to ${game.target}` : "No point limit";
     renderStandings($("#standings"), game.current);
     setPlates($("#team-up"), currentTeam().name);
     renderDie(null);
@@ -920,7 +921,7 @@
   }
 
   function dieLabel(face) {
-    if (!game.die) return `First to ${game.target}`;
+    if (!game.die) return game.target ? `First to ${game.target}` : `Score ${currentTeam().score}`;
     return face ? `Die −${face}` : "Die 0";
   }
 
@@ -949,12 +950,20 @@
     step();
   });
 
+  // With no point limit this is how a game finishes: straight to the
+  // results, if anyone has played a turn.
   $("#quit").addEventListener("click", () => {
-    if (!window.confirm("End this game? The scores will be lost.")) return;
-    store.remove(KEYS.game);
-    game = null;
-    initSetup();
-    show("setup");
+    if (!game.history.length) {
+      if (!window.confirm("End this game?")) return;
+      store.remove(KEYS.game);
+      game = null;
+      initSetup();
+      return show("group");
+    }
+    if (!window.confirm("End the game and see the results?")) return;
+    const top = Math.max(...game.teams.map((t) => t.score));
+    const leaders = game.teams.filter((t) => t.score === top);
+    showWinner(leaders[0], leaders.map((t) => t.name).join(" & "));
   });
 
   // ------------------------------------------------------------------ play
@@ -1182,7 +1191,7 @@
       missed ? line("To the revision pile", el("span", { text: String(missed) })) : null,
       el("div", { class: "r-rule double", "aria-hidden": "true" }),
       line("This turn", el("b", { text: `+${points}` }), "r-total"),
-      line("New total", el("span", { text: `${team.score + points} / ${game.target}` })));
+      line("New total", el("span", { text: game.target ? `${team.score + points} / ${game.target}` : String(team.score + points) })));
     $("#confirm-label").textContent = `Bank ${plural(points, "point")}`;
   }
 
@@ -1203,7 +1212,7 @@
       topics: turn.card.map((t) => [topicName(t.pack, t.topic), t.got ? 1 : 0]),
     });
 
-    if (team.score >= game.target) return showWinner(team);
+    if (game.target && team.score >= game.target) return showWinner(team);
 
     game.current = (game.current + 1) % game.teams.length;
     saveGame();
@@ -1283,11 +1292,11 @@
     node.textContent = n ? `${plural(n, "term")} on your revision pile. Flashcards on the home screen will bring them back.` : "";
   }
 
-  function showWinner(team) {
+  function showWinner(team, label) {
     store.remove(KEYS.game);
     const h = game.history;
     $("#final-meta").textContent = `${plural(h.length, "turn")} · ${h.reduce((n, t) => n + (t.seen || CARD_SIZE), 0)} terms`;
-    setPlates($("#winner-name"), team.name);
+    setPlates($("#winner-name"), label || team.name);
     awardList($("#awards"), computeAwards());
 
     const ranked = game.teams.slice().sort((a, b) => b.score - a.score);
@@ -2178,15 +2187,16 @@
   // ------------------------------------------------------------------ study mode
   //
   // 30 Seconds on your own, for studying: five terms a card on the clock.
-  // Explain each one out loud and tick it off; after three ticks (or when
-  // time's up) the card flips to show all five facts. No teams, die or
+  // Explain each one out loud and tick it off. Get three before the clock
+  // runs out and the card can flip to show all five facts; run out of time
+  // first and it stays shut, so try it again or move on. No teams, die or
   // points. Terms left unticked go on the revision pile.
 
   const STUDY_LIMITS = { seconds: [0, 120] };
   const STUDY_ORDERS = [["shuffle", "Shuffled"], ["topic", "Topic by topic"]];
   const FLIP_AFTER = 3;
   let studyPrefs = null; // { seconds, autoflip, order }
-  let study = null;      // { cards: [[id]], ticks: [[bool]], unlocked: [bool], committed: [bool], i, flipped }
+  let study = null;      // { cards: [[id]], ticks: [[bool]], unlocked: [bool], timedOut: [bool], committed: [bool], i, flipped }
   let studyTimer = null;
   let studyClock = null;
   let studyTerms = new Map(); // term id -> term
@@ -2297,6 +2307,7 @@
       cards,
       ticks: restore(saved.ticks, (c) => c.map(() => false)),
       unlocked: restore(saved.unlocked, () => false),
+      timedOut: restore(saved.timedOut, () => false),
       committed: restore(saved.committed, () => false),
       i: clampInt(saved.i, 0, n - 1, 0),
       flipped: false,
@@ -2313,6 +2324,7 @@
       cards,
       ticks: cards.map((c) => c.map(() => false)),
       unlocked: cards.map(() => false),
+      timedOut: cards.map(() => false),
       committed: cards.map(() => false),
       i: 0,
       flipped: false,
@@ -2323,11 +2335,15 @@
   }
 
   const saveStudy = () => store.set(KEYS.study, {
-    cards: study.cards, ticks: study.ticks, unlocked: study.unlocked, committed: study.committed, i: study.i,
+    cards: study.cards, ticks: study.ticks, unlocked: study.unlocked, timedOut: study.timedOut, committed: study.committed, i: study.i,
   });
 
   const studyTicked = () => study.ticks[study.i].filter(Boolean).length;
-  const canFlip = () => study.unlocked[study.i] || studyTicked() >= Math.min(FLIP_AFTER, study.cards[study.i].length);
+  // The card opens once you've got three inside the time (any three with the
+  // timer off). That stays earned: unticking later doesn't shut it again.
+  const flipNeeded = () => Math.min(FLIP_AFTER, study.cards[study.i].length);
+  const canFlip = () => !!study.unlocked[study.i];
+  const lockedOut = () => !!study.timedOut[study.i] && !study.unlocked[study.i];
 
   // A card goes onto the revision pile the first time you move on from it; after
   // that, changing a tick moves that one term on or off the pile.
@@ -2345,7 +2361,13 @@
   function setStudyTick(k, value) {
     const ticks = study.ticks[study.i];
     if (ticks[k] === value) return;
+    if (!study.flipped && lockedOut()) return toast("Time's up on this card. Try it again, or move on.");
     ticks[k] = value;
+    if (value && !study.unlocked[study.i] && studyTicked() >= flipNeeded()) {
+      study.unlocked[study.i] = true;
+      beep(990, 0.12, 0.15);
+      haptic([30, 40, 30]);
+    }
     if (study.committed[study.i]) {
       const id = study.cards[study.i][k];
       const t = studyTerms.get(id);
@@ -2364,8 +2386,9 @@
     $("#st-card").classList.remove("flipped");
     renderStudyCard();
     saveStudy();
-    if (study.committed[study.i]) {
-      // Back on a card you've already done: no clock, it's open to check.
+    if (study.committed[study.i] || study.timedOut[study.i]) {
+      // Back on a card you've already done, or one the clock already beat:
+      // no clock until you choose to try it again.
       stopStudyClock();
       $(".st-clock-row").hidden = true;
       $("#st-fuse").parentElement.hidden = true;
@@ -2411,11 +2434,17 @@
     $("#st-sum").textContent = `${ticked} of ${ids.length} explained`;
 
     const open = canFlip();
-    $("#st-flip").disabled = !open && !study.flipped;
-    $("#st-flip").textContent = study.flipped ? "Flip back" : open ? "Flip · see the facts" : `Tick ${Math.min(FLIP_AFTER, ids.length) - ticked} more to flip`;
+    const out = lockedOut();
+    const need = Math.max(0, flipNeeded() - ticked);
+    $("#st-flip").disabled = !open && !out && !study.flipped;
+    $("#st-flip").textContent = study.flipped ? "Flip back" : open ? "Flip · see the facts"
+      : out ? "Try this card again" : `Get ${need} more to flip`;
+    $("#st-card").classList.toggle("locked", out && !study.flipped);
     $("#st-hint").textContent = study.flipped
       ? (study.i === study.cards.length - 1 ? "Last card. → to finish." : "→ for the next card.")
-      : open ? "Explain the rest, or flip to check." : "Explain each term out loud, then tick it.";
+      : open ? "You got three. Explain the rest, or flip to check."
+        : out ? `Time's up with ${ticked} of ${flipNeeded()}. Try again, or → to move on (they'll go on your pile).`
+          : studyPrefs.seconds ? `Get ${flipNeeded()} right inside the ${studyPrefs.seconds} seconds to flip the card.` : `Get ${flipNeeded()} right to flip the card.`;
     $("#st-prev").disabled = study.i === 0;
   }
 
@@ -2423,8 +2452,9 @@
   let turning = null;
   function flipStudy() {
     if (!study) return;
+    if (!study.flipped && lockedOut()) return retryStudy();
     if (!study.flipped && !canFlip()) {
-      toast(`Tick ${FLIP_AFTER} terms first, or wait for the clock.`);
+      toast(`Get ${flipNeeded()} right ${studyPrefs.seconds ? "inside the time " : ""}to flip the card.`);
       return;
     }
     study.flipped = !study.flipped;
@@ -2447,6 +2477,15 @@
       $("#st-card").classList.toggle("flipped", flipped);
       turning = setTimeout(() => inner.classList.remove("turning"), 170);
     }, 150);
+  }
+
+  // Another go at a card the clock beat: ticks cleared, clock restarted.
+  function retryStudy() {
+    study.ticks[study.i] = study.cards[study.i].map(() => false);
+    study.timedOut[study.i] = false;
+    saveStudy();
+    renderStudyCard();
+    startStudyClock();
   }
 
   function nextStudy() {
@@ -2498,9 +2537,10 @@
       stopStudyClock();
       beep(440, 0.5, 0.25);
       haptic([200, 100, 200]);
-      study.unlocked[study.i] = true;
+      // Only a card you got three on opens; otherwise it stays shut.
+      if (!study.unlocked[study.i]) study.timedOut[study.i] = true;
       saveStudy();
-      if (studyPrefs.autoflip && !study.flipped) flipStudy();
+      if (study.unlocked[study.i] && studyPrefs.autoflip && !study.flipped) flipStudy();
       else renderStudyCard();
     }
   }
