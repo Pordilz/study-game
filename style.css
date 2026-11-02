@@ -799,44 +799,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus
 
 /* the card turns over like an index card: it narrows to its edge, swaps
    sides and opens out again. No 3D, so it looks the same on every phone. */
-.card-stage { margin: 4px 8px 4px 0; }
-.card {
-  position: relative; display: block; width: 100%; min-height: 330px;
-  cursor: pointer; text-align: left; color: var(--ink); touch-action: pan-y;
-}
-.card-inner { display: grid; grid-template-columns: minmax(0, 1fr); min-height: inherit; }
+.study-card { position: relative; }
+.card-inner { display: grid; grid-template-columns: minmax(0, 1fr); }
 .card-inner.turning { animation: turn 0.32s ease-in-out; }
 @keyframes turn { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.02); } }
-.face {
-  display: flex; flex-direction: column; gap: 12px; min-height: inherit;
-  padding: 24px 20px 18px;
-  border: 2.5px solid var(--ink); box-shadow: 7px 7px 0 var(--teal-soft);
-  background:
-    linear-gradient(var(--pen), var(--pen)) 0 52px / 100% 2px no-repeat,
-    repeating-linear-gradient(to bottom, transparent 0 27px, var(--rule) 27px 28px) 0 54px / 100% calc(100% - 54px) no-repeat,
-    var(--paper-hi);
-}
-.face.back { display: none; box-shadow: 7px 7px 0 var(--yellow); }
-.card.flipped .face.front { display: none; }
-.card.flipped .face.back { display: flex; }
-.card-sub { min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--teal); }
-.card-text { margin-top: 18px; font-family: var(--display); font-weight: 800; font-stretch: 85%; font-size: clamp(30px, 9vw, 42px); line-height: 1.05; overflow-wrap: anywhere; }
-.card-text.long { font-size: clamp(20px, 5.6vw, 25px); line-height: 1.2; }
-.card-options { margin: 0; padding-left: 26px; list-style: upper-alpha; display: grid; gap: 4px; font-size: 15px; font-weight: 700; }
-.card-options:empty { display: none; }
-.card-title { margin-top: 18px; font-family: var(--display); font-weight: 800; font-stretch: 85%; font-size: clamp(24px, 7vw, 32px); line-height: 1.1; overflow-wrap: anywhere; }
-.card-back-text { font-size: 16px; line-height: 1.55; }
-.card-hint { margin-top: auto; opacity: 0.55; text-align: right; }
-.card:focus-visible { outline: none; }
-.card:focus-visible .face { outline: 3px solid var(--teal); outline-offset: 3px; }
-.card-inner { min-height: 330px; }
-
+.side { display: flex; flex-direction: column; gap: 6px; }
+.side.back { display: none; }
+.study-card.flipped .side.front { display: none; }
+.study-card.flipped .side.back { display: flex; }
+.study-card .stamp { font-size: 20px; }
+#st-flip:disabled { opacity: 0.45; cursor: default; }
+.flip-btn { justify-content: center; font-size: 16px; }
+#st-hint { min-height: 1.5em; }
 .nav-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; align-items: center; gap: 10px; }
 .round.nav { width: 52px; height: 52px; font-size: 22px; }
 .flip-btn { min-height: 52px; }
-.mark-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.mark[aria-pressed="true"].got { background: var(--teal); border-color: var(--teal); color: #fff; }
-.mark[aria-pressed="true"].again { background: var(--yellow); }
 .keys { opacity: 0.6; }
 @media (hover: none) { .keys { display: none; } }
 @media (prefers-reduced-motion: reduce) { .card-inner.turning { animation: none; } }

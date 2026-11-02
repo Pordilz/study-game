@@ -2177,69 +2177,81 @@
 
   // ------------------------------------------------------------------ study mode
   //
-  // The content without the game: one card at a time, a clock to explain
-  // it against, and a card you can flip, flip back, revisit or skip
-  // whenever you like. Marking is optional: "Still learning" puts the card
-  // on the revision pile, "Got it" takes it off and moves it up a box.
+  // 30 Seconds on your own, for studying: five terms a card on the clock.
+  // Explain each one out loud and tick it off; after three ticks (or when
+  // time's up) the card flips to show all five facts. No teams, die or
+  // points. Terms left unticked go on the revision pile.
 
   const STUDY_LIMITS = { seconds: [0, 120] };
-  const STUDY_KINDS = [["both", "Terms + questions"], ["terms", "Terms"], ["questions", "Questions"]];
   const STUDY_ORDERS = [["shuffle", "Shuffled"], ["topic", "Topic by topic"]];
-  let studyPrefs = null; // { kind, seconds, autoflip, order }
-  let study = null;      // { ids, i, marks, flipped }
+  const FLIP_AFTER = 3;
+  let studyPrefs = null; // { seconds, autoflip, order }
+  let study = null;      // { cards: [[id]], ticks: [[bool]], unlocked: [bool], committed: [bool], i, flipped }
   let studyTimer = null;
-  let studyClock = null; // { left, total, running }
+  let studyClock = null;
+  let studyTerms = new Map(); // term id -> term
 
-  // Every card, by id, so a saved session can be rebuilt after a refresh.
-  function studyCardFor(id) {
-    if (id.startsWith("q:")) {
-      const q = QUIZ_ALL.find((x) => `q:${x.key}` === id);
-      return q && {
-        id, kind: "q", front: q.prompt, options: q.options,
-        sub: `${QUIZ_KINDS[q.kind].title} · ${PACK.get(q.pack).name} · ${topicName(q.pack, q.topic)}`,
-        title: q.options[q.answer], back: q.why, pile: questionCard(q),
-      };
-    }
-    const t = [...BANK_TERMS, ...customTerms()].find((x) => termCard(x).id === id);
-    return t && {
-      id, kind: "t", front: t.term, options: [],
-      sub: [CATS[t.cat], t.pack ? PACK.get(t.pack).name : "", topicName(t.pack, t.topic), t.topic === OWN ? "" : "●".repeat(t.level)].filter(Boolean).join(" · "),
-      title: t.term, back: t.why || "No fact saved for this one.", pile: termCard(t),
-    };
+  function refreshStudyTerms() {
+    studyTerms = new Map([...BANK_TERMS, ...customTerms()].map((t) => [termCard(t).id, t]));
   }
 
-  function studyIds() {
-    const kind = studyPrefs.kind;
-    const terms = kind === "questions" ? [] : allTerms();
-    const qs = kind === "terms" ? [] : quizBank();
-    if (studyPrefs.order === "topic") {
-      // Topic by topic, terms first, easiest first within each topic.
-      const order = (x) => `${x.pack || "~"}|${x.topic}`;
-      const items = [...terms.map((t) => ({ o: order(t), l: t.level, k: 0, id: termCard(t).id })),
-        ...qs.map((q) => ({ o: order(q), l: q.level, k: 1, id: `q:${q.key}` }))];
-      return items.sort((a, b) => a.o.localeCompare(b.o) || a.k - b.k || a.l - b.l).map((x) => x.id);
+  // Deals the whole stack into cards of five the way 30 Seconds does:
+  // five different kinds of term where possible, and no two that share a
+  // word, so one explanation can't give another away.
+  function dealStudy(terms) {
+    const deck = terms.slice();
+    const cards = [];
+    while (deck.length) {
+      const picked = [];
+      const taken = new Set();
+      const cats = new Set();
+      const pass = (newCategory, newFamilies) => {
+        for (let i = 0; i < deck.length && picked.length < CARD_SIZE; i++) {
+          const t = deck[i];
+          if (!t || (newCategory && cats.has(t.cat))) continue;
+          const fams = familiesOf(t.term);
+          if (newFamilies && [...fams].some((f) => taken.has(f))) continue;
+          picked.push(t);
+          fams.forEach((f) => taken.add(f));
+          cats.add(t.cat);
+          deck[i] = null;
+        }
+      };
+      pass(true, true);
+      pass(false, true);
+      pass(false, false);
+      for (let i = deck.length - 1; i >= 0; i--) if (!deck[i]) deck.splice(i, 1);
+      cards.push(picked.map((t) => termCard(t).id));
     }
-    return shuffle([...terms.map((t) => termCard(t).id), ...qs.map((q) => `q:${q.key}`)]);
+    return cards;
+  }
+
+  function studyStack() {
+    const terms = allTerms();
+    if (studyPrefs.order === "topic") {
+      // Topic by topic, easiest first, so a card stays within one topic where it can.
+      const key = (t) => `${t.pack || "~"}|${t.topic}`;
+      return terms.slice().sort((a, b) => key(a).localeCompare(key(b)) || a.level - b.level);
+    }
+    return shuffle(terms.slice());
   }
 
   function openStudySetup() {
     const p = store.get(KEYS.studyPrefs, {}) || {};
     studyPrefs = {
-      kind: STUDY_KINDS.some(([k]) => k === p.kind) ? p.kind : "both",
       seconds: clampInt(p.seconds, ...STUDY_LIMITS.seconds, 30),
       autoflip: p.autoflip !== false,
       order: STUDY_ORDERS.some(([k]) => k === p.order) ? p.order : "shuffle",
     };
     renderStudySetup();
     const saved = store.get(KEYS.study, null);
-    $("#ss-resume").hidden = !(saved && Array.isArray(saved.ids) && saved.ids.length);
-    if (saved && saved.ids) $("#ss-resume").textContent = `Carry on where I left off (card ${saved.i + 1} of ${saved.ids.length})`;
+    const ok = saved && Array.isArray(saved.cards) && saved.cards.length;
+    $("#ss-resume").hidden = !ok;
+    if (ok) $("#ss-resume").textContent = `Carry on where I left off (card ${saved.i + 1} of ${saved.cards.length})`;
     show("study-setup");
   }
 
   function renderStudySetup() {
-    $("#ss-kind").replaceChildren(...STUDY_KINDS.map(([k, label]) =>
-      chip(label, studyPrefs.kind === k, () => { studyPrefs.kind = k; renderStudySetup(); })));
     $("#ss-order").replaceChildren(...STUDY_ORDERS.map(([k, label]) =>
       chip(label, studyPrefs.order === k, () => { studyPrefs.order = k; renderStudySetup(); })));
     $("#ss-seconds").textContent = studyPrefs.seconds ? studyPrefs.seconds : "Off";
@@ -2249,12 +2261,13 @@
     }
     $("#ss-autoflip").setAttribute("aria-checked", String(studyPrefs.autoflip));
     $("#ss-autoflip").disabled = !studyPrefs.seconds;
-    const n = studyIds().length;
-    $("#ss-info").textContent = `${plural(n, "card")} picked`;
-    $("#ss-start-label").textContent = n ? `Start · ${plural(n, "card")}` : "Start";
+    const n = allTerms().length;
+    const cardsN = Math.ceil(n / CARD_SIZE);
+    $("#ss-info").textContent = `${plural(n, "term")} picked`;
+    $("#ss-start-label").textContent = n ? `Start · ${plural(cardsN, "card")}` : "Start";
     $("#ss-start").disabled = !n;
     $("#ss-error").hidden = !!n;
-    $("#ss-error").textContent = n ? "" : "No cards in the topics you picked. Go back and pick more.";
+    $("#ss-error").textContent = n ? "" : "No terms in the topics you picked. Go back and pick more.";
   }
 
   document.querySelectorAll("[data-ssetting]").forEach((btn) => {
@@ -2268,60 +2281,161 @@
   $("#ss-start").addEventListener("click", () => {
     store.set(KEYS.studyPrefs, studyPrefs);
     unlockAudio();
-    startStudy(studyIds());
+    startStudy(studyStack());
   });
   $("#ss-resume").addEventListener("click", () => {
     const saved = store.get(KEYS.study, null);
-    if (!saved) return;
+    if (!saved || !Array.isArray(saved.cards)) return;
     store.set(KEYS.studyPrefs, studyPrefs);
     unlockAudio();
-    const ids = saved.ids.filter((id) => studyCardFor(id));
-    study = { ids, i: clampInt(saved.i, 0, Math.max(0, ids.length - 1), 0), marks: saved.marks || {}, flipped: false };
+    refreshStudyTerms();
+    const cards = saved.cards.map((c) => c.filter((id) => studyTerms.has(id))).filter((c) => c.length);
+    if (!cards.length) return toast("That stack's terms are no longer in the deck.");
+    const n = cards.length;
+    const restore = (list, fill) => cards.map((c, i) => (Array.isArray(list) && list[i] !== undefined ? list[i] : fill(c)));
+    study = {
+      cards,
+      ticks: restore(saved.ticks, (c) => c.map(() => false)),
+      unlocked: restore(saved.unlocked, () => false),
+      committed: restore(saved.committed, () => false),
+      i: clampInt(saved.i, 0, n - 1, 0),
+      flipped: false,
+    };
     showStudyCard();
     show("study");
   });
 
-  function startStudy(ids) {
-    if (!ids.length) return toast("No cards to go through.");
-    study = { ids, i: 0, marks: {}, flipped: false };
+  function startStudy(terms) {
+    if (!terms.length) return toast("No terms to go through.");
+    refreshStudyTerms();
+    const cards = dealStudy(terms);
+    study = {
+      cards,
+      ticks: cards.map((c) => c.map(() => false)),
+      unlocked: cards.map(() => false),
+      committed: cards.map(() => false),
+      i: 0,
+      flipped: false,
+    };
     saveStudy();
     showStudyCard();
     show("study");
   }
 
-  const saveStudy = () => store.set(KEYS.study, { ids: study.ids, i: study.i, marks: study.marks });
+  const saveStudy = () => store.set(KEYS.study, {
+    cards: study.cards, ticks: study.ticks, unlocked: study.unlocked, committed: study.committed, i: study.i,
+  });
+
+  const studyTicked = () => study.ticks[study.i].filter(Boolean).length;
+  const canFlip = () => study.unlocked[study.i] || studyTicked() >= Math.min(FLIP_AFTER, study.cards[study.i].length);
+
+  // A card goes onto the revision pile the first time you move on from it; after
+  // that, changing a tick moves that one term on or off the pile.
+  function commitStudyCard(i) {
+    if (study.committed[i]) return;
+    study.cards[i].forEach((id, k) => {
+      const t = studyTerms.get(id);
+      if (!t) return;
+      if (study.ticks[i][k]) { removeFromPile(id); schedule(id, true); }
+      else addToPile([termCard(t)]);
+    });
+    study.committed[i] = true;
+  }
+
+  function setStudyTick(k, value) {
+    const ticks = study.ticks[study.i];
+    if (ticks[k] === value) return;
+    ticks[k] = value;
+    if (study.committed[study.i]) {
+      const id = study.cards[study.i][k];
+      const t = studyTerms.get(id);
+      if (value) removeFromPile(id);
+      else if (t) addToPile([termCard(t)]);
+    }
+    if (value) { beep(660, 0.06, 0.08); haptic(15); }
+    saveStudy();
+    renderStudyCard();
+  }
 
   function showStudyCard() {
-    const card = studyCardFor(study.ids[study.i]);
-    if (!card) return nextStudy();
     study.flipped = false;
     clearTimeout(turning);
     $("#st-card .card-inner").classList.remove("turning");
-    $("#st-count").textContent = `${study.i + 1} / ${study.ids.length}`;
     $("#st-card").classList.remove("flipped");
-    $("#st-front-sub").textContent = card.sub;
-    $("#st-front-text").textContent = card.front;
-    $("#st-front-text").classList.toggle("long", card.front.length > 70);
-    $("#st-front-options").replaceChildren(...card.options.map((o) => el("li", { text: o })));
-    $("#st-back-sub").textContent = card.kind === "q" ? "The answer" : card.sub;
-    $("#st-back-title").textContent = card.title;
-    $("#st-back-text").textContent = card.back;
-    const mark = study.marks[card.id];
-    $("#st-again").setAttribute("aria-pressed", String(mark === "again"));
-    $("#st-got").setAttribute("aria-pressed", String(mark === "got"));
-    $("#st-prev").disabled = study.i === 0;
+    renderStudyCard();
     saveStudy();
-    startStudyClock();
+    if (study.committed[study.i]) {
+      // Back on a card you've already done: no clock, it's open to check.
+      stopStudyClock();
+      $(".st-clock-row").hidden = true;
+      $("#st-fuse").parentElement.hidden = true;
+    } else {
+      startStudyClock();
+    }
+  }
+
+  function renderStudyCard() {
+    const ids = study.cards[study.i];
+    const ticks = study.ticks[study.i];
+    const ticked = ticks.filter(Boolean).length;
+    $("#st-count").textContent = `Card ${study.i + 1} of ${study.cards.length}`;
+    $("#st-ticked").textContent = ticked;
+    $("#st-of").textContent = ids.length;
+
+    $("#st-terms").replaceChildren(...ids.map((id, k) => {
+      const t = studyTerms.get(id);
+      const btn = el("button", { type: "button", class: "term", "aria-pressed": String(!!ticks[k]) },
+        el("span", { class: "num", "aria-hidden": "true", text: pad(k + 1) }),
+        el("span", { class: "body" },
+          el("span", { class: "word", text: t ? t.term : id }),
+          el("span", { class: "cat", text: t ? `${categoryLabel(t)}${t.topic === OWN ? "" : ` · ${topicName(t.pack, t.topic)}`}` : "" })),
+        svg(ARROW),
+        el("span", { class: "stamp", "aria-hidden": "true", text: "✓ DONE" }));
+      attachSwipe(btn, () => setStudyTick(k, true), () => setStudyTick(k, !ticks[k]));
+      return el("li", {}, btn);
+    }));
+
+    $("#st-facts").replaceChildren(...ids.map((id, k) => {
+      const t = studyTerms.get(id);
+      const status = el("span", { class: "s", text: ticks[k] ? "Got it" : "Still learning" });
+      const btn = el("button", { type: "button", class: "check", "aria-pressed": String(!!ticks[k]) },
+        el("span", { class: "box" }, svg(TICK)),
+        el("span", { class: "tw" },
+          el("span", { class: "t", text: t ? t.term : id }),
+          t && t.why ? el("span", { class: "why", text: t.why }) : null,
+          t ? el("span", { class: "where", text: `${CATS[t.cat]}${t.topic === OWN ? "" : ` · ${topicName(t.pack, t.topic)}`}` }) : null),
+        status);
+      btn.addEventListener("click", () => setStudyTick(k, !ticks[k]));
+      return el("li", {}, btn);
+    }));
+    $("#st-sum").textContent = `${ticked} of ${ids.length} explained`;
+
+    const open = canFlip();
+    $("#st-flip").disabled = !open && !study.flipped;
+    $("#st-flip").textContent = study.flipped ? "Flip back" : open ? "Flip · see the facts" : `Tick ${Math.min(FLIP_AFTER, ids.length) - ticked} more to flip`;
+    $("#st-hint").textContent = study.flipped
+      ? (study.i === study.cards.length - 1 ? "Last card. → to finish." : "→ for the next card.")
+      : open ? "Explain the rest, or flip to check." : "Explain each term out loud, then tick it.";
+    $("#st-prev").disabled = study.i === 0;
   }
 
   // The sides swap halfway through the turn, when the card is edge-on.
   let turning = null;
   function flipStudy() {
     if (!study) return;
+    if (!study.flipped && !canFlip()) {
+      toast(`Tick ${FLIP_AFTER} terms first, or wait for the clock.`);
+      return;
+    }
     study.flipped = !study.flipped;
+    if (study.flipped) {
+      study.unlocked[study.i] = true;
+      saveStudy();
+    }
     const flipped = study.flipped;
     const inner = $("#st-card .card-inner");
     clearTimeout(turning);
+    renderStudyCard();
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       $("#st-card").classList.toggle("flipped", flipped);
       return;
@@ -2336,35 +2450,21 @@
   }
 
   function nextStudy() {
-    if (study.i >= study.ids.length - 1) return finishStudy();
+    commitStudyCard(study.i);
+    if (study.i >= study.cards.length - 1) return finishStudy();
     study.i++;
     showStudyCard();
   }
 
+  // Going back doesn't count as finishing the card you're on: it keeps its
+  // clock and its ticks until you move forward past it.
   function prevStudy() {
     if (study.i === 0) return;
     study.i--;
     showStudyCard();
   }
 
-  function markStudy(mark) {
-    const card = studyCardFor(study.ids[study.i]);
-    if (!card) return;
-    if (study.marks[card.id] === mark) {
-      delete study.marks[card.id];
-    } else {
-      study.marks[card.id] = mark;
-      if (mark === "again") addToPile([card.pile]);
-      else { removeFromPile(card.id); schedule(card.id, true); }
-      haptic(15);
-    }
-    saveStudy();
-    // Marking moves you on; you can always come back with ←.
-    if (study.marks[card.id]) setTimeout(nextStudy, 180);
-    else showStudyCard();
-  }
-
-  // ---- the clock: one per card, restarts on each card, never decides anything
+  // ---- the clock: one per card, restarts on each new card
 
   function startStudyClock() {
     stopStudyClock();
@@ -2390,15 +2490,18 @@
       setPlates($("#st-clock"), String(whole));
       $("#st-clock-sr").textContent = `${whole} seconds left`;
       $("#study").classList.toggle("urgent", whole <= 5);
-      if (c.lastWhole !== null && whole > 0 && whole <= 3 && c.running) beep(880, 0.05, 0.08);
+      if (c.lastWhole !== null && whole > 0 && whole <= 5 && c.running) beep(880, 0.06, 0.1);
       c.lastWhole = whole;
     }
     $("#st-fuse").style.width = `${(c.left / c.total) * 100}%`;
     if (c.left <= 0) {
       stopStudyClock();
-      beep(440, 0.4, 0.2);
-      haptic([120, 60, 120]);
+      beep(440, 0.5, 0.25);
+      haptic([200, 100, 200]);
+      study.unlocked[study.i] = true;
+      saveStudy();
       if (studyPrefs.autoflip && !study.flipped) flipStudy();
+      else renderStudyCard();
     }
   }
 
@@ -2411,7 +2514,7 @@
 
   function pauseStudy() {
     const c = studyClock;
-    if (!c || c.left <= 0) return startStudyClock(); // time's up: restart this card's clock
+    if (!c || c.left <= 0 || !studyTimer) return;
     c.running = !c.running;
     c.last = Date.now();
     $("#st-pause").textContent = c.running ? "Pause" : "Resume";
@@ -2419,48 +2522,35 @@
 
   function finishStudy() {
     stopStudyClock();
-    const marks = Object.values(study.marks);
-    const got = marks.filter((m) => m === "got").length;
-    const again = marks.filter((m) => m === "again").length;
-    $("#sd-info").textContent = plural(study.ids.length, "card");
+    const all = study.ticks.flat();
+    const got = all.filter(Boolean).length;
+    const again = all.length - got;
+    $("#sd-info").textContent = plural(all.length, "term");
     $("#sd-got").textContent = got;
     $("#sd-again").textContent = again;
-    $("#sd-unmarked").textContent = study.ids.length - got - again;
+    $("#sd-cards").textContent = study.cards.length;
     $("#sd-again-wrap").hidden = !again;
-    $("#sd-again-label").textContent = `Go through the ${again === 1 ? "one" : again} I'm still learning`;
+    $("#sd-again-label").textContent = `Deal the ${again === 1 ? "one" : again} I'm still learning`;
     store.remove(KEYS.study);
     show("study-done");
+    fanfare();
   }
 
-  $("#st-card").addEventListener("click", flipStudy);
+  const studyIdsWhere = (want) => study.cards.flatMap((c, i) => c.filter((_, k) => !!study.ticks[i][k] === want));
+
   $("#st-flip").addEventListener("click", flipStudy);
   $("#st-next").addEventListener("click", nextStudy);
   $("#st-prev").addEventListener("click", prevStudy);
-  $("#st-again").addEventListener("click", () => markStudy("again"));
-  $("#st-got").addEventListener("click", () => markStudy("got"));
   $("#st-pause").addEventListener("click", pauseStudy);
-  $("#st-back").addEventListener("click", () => { stopStudyClock(); goHome(); });
-
-  // Swipe the card left for the next one, right for the one before.
-  (() => {
-    let x0 = null, y0 = 0;
-    const node = $("#st-card");
-    node.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
-    node.addEventListener("touchend", (e) => {
-      if (x0 === null) return;
-      const dx = e.changedTouches[0].clientX - x0;
-      const dy = e.changedTouches[0].clientY - y0;
-      x0 = null;
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-        e.preventDefault();
-        if (dx < 0) nextStudy(); else prevStudy();
-      }
-    });
-  })();
-
+  $("#st-back").addEventListener("click", () => {
+    stopStudyClock();
+    if (study) saveStudy();
+    goHome();
+  });
   $("#sd-again-btn").addEventListener("click", () =>
-    startStudy(study.ids.filter((id) => study.marks[id] === "again")));
-  $("#sd-restart").addEventListener("click", () => startStudy(study.ids.slice()));
+    startStudy(shuffle(studyIdsWhere(false).map((id) => studyTerms.get(id)).filter(Boolean))));
+  $("#sd-restart").addEventListener("click", () =>
+    startStudy(shuffle(study.cards.flat().map((id) => studyTerms.get(id)).filter(Boolean))));
   $("#sd-home").addEventListener("click", goHome);
   $("#open-study").addEventListener("click", openStudySetup);
 
@@ -2497,12 +2587,11 @@
       const i = "1234".indexOf(key) >= 0 ? "1234".indexOf(key) : "abcd".indexOf(key);
       if (i >= 0 && practice.results.length === practice.i) { e.preventDefault(); answerPractice(i); }
     } else if (screen === "study" && study) {
-      if (key === " " || key === "enter" || key === "f") { e.preventDefault(); flipStudy(); }
+      if (/^[1-5]$/.test(key) && !study.flipped && study.cards[study.i][key - 1]) { e.preventDefault(); setStudyTick(key - 1, !study.ticks[study.i][key - 1]); }
+      else if (key === " " || key === "enter" || key === "f") { e.preventDefault(); flipStudy(); }
       else if (key === "arrowright") { e.preventDefault(); nextStudy(); }
       else if (key === "arrowleft") { e.preventDefault(); prevStudy(); }
       else if (key === "p") pauseStudy();
-      else if (key === "1") markStudy("again");
-      else if (key === "2") markStudy("got");
     } else if (screen === "cards") {
       if (key === " " || key === "enter") { e.preventDefault(); $("#flash-rate").hidden ? flipFlash() : rateFlash(true); }
       else if (key === "k") rateFlash(true);
